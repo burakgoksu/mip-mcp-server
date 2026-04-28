@@ -1,0 +1,1352 @@
+#!/usr/bin/env node
+
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import axios from "axios";
+import FormData from "form-data";
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+// ─── Config (env variables) ───────────────────────────────────────────────────
+const BASE_URL = process.env.MIP_BASE_URL;
+const MIP_USERNAME = process.env.MIP_USERNAME;
+const MIP_PASSWORD = process.env.MIP_PASSWORD;
+const DOWNLOAD_DIR = process.env.MIP_DOWNLOAD_DIR || path.join(os.homedir(), "mip-downloads");
+
+if (!BASE_URL || !MIP_USERNAME || !MIP_PASSWORD) {
+  process.stderr.write(
+    "Hata: MIP_BASE_URL, MIP_USERNAME ve MIP_PASSWORD env değişkenleri settings.json içinde tanımlanmalıdır.\n"
+  );
+  process.exit(1);
+}
+
+// ─── Token Management ─────────────────────────────────────────────────────────
+let tokenState = { token: null, expiry: 0 };
+
+async function getToken() {
+  if (tokenState.token && Date.now() < tokenState.expiry - 30000) {
+    return tokenState.token;
+  }
+  const res = await axios.post(`${BASE_URL}/api/auth/sign-in`, {
+    username: MIP_USERNAME,
+    password: MIP_PASSWORD,
+  });
+  tokenState.token = res.data.token;
+  const expiresIn = res.data.expires_in ?? 3600;
+  tokenState.expiry = Date.now() + expiresIn * 1000;
+  return tokenState.token;
+}
+
+function authHeaders() {
+  return { Authorization: `Bearer ${tokenState.token}` };
+}
+
+// ─── Helper: save binary response to file ────────────────────────────────────
+function ensureDownloadDir() {
+  if (!fs.existsSync(DOWNLOAD_DIR)) {
+    fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+  }
+}
+
+function saveFile(buffer, filename) {
+  ensureDownloadDir();
+  const filePath = path.join(DOWNLOAD_DIR, filename);
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
+
+function extractFilename(headers, fallback) {
+  const cd = headers["content-disposition"] || "";
+  const match = cd.match(/filename="?([^";\n]+)"?/);
+  return match ? match[1].trim() : fallback;
+}
+
+// ─── MIP Flow Schema Knowledge Base ──────────────────────────────────────────
+// 310 gerçek flow analiz edilerek oluşturulmuştur. 55 node tipi, tüm alanlar.
+const MIP_FLOW_SCHEMA = {
+  description: "MIP Integration Platform — Flow, Resource ve Package şema bilgisi. 310 gerçek flow analiz edilerek oluşturulmuştur.",
+
+  flowStructure: {
+    topLevelFields: {
+      required: ["flowId", "flowName", "flowPackageId", "flowData"],
+      optional: ["flowDescription", "version", "flowLocked", "flowConfiguration"],
+      notes: "id, createdDate, createdBy gibi audit alanları import sırasında otomatik atanır. flowData string olarak JSON encode edilir."
+    },
+    flowDataFormat: "flowData alanı JSON array'i string olarak içerir. İçinde node'lar ve edge'ler birlikte bulunur. JSON.stringify() ile serialize edilmeli."
+  },
+
+  nodeSchema: {
+    commonFields: {
+      id: "dndnode_<timestamp> formatında unique string",
+      type: "her zaman 'special'",
+      sourcePosition: "genellikle 'right'",
+      targetPosition: "genellikle 'left'",
+      position: { x: "number (300px aralıklı önerilir)", y: "number" },
+      height: 40.0,
+      width: 160.0,
+      processSteps: [],
+      data: {
+        objectType: "node tipini belirler (processStart, processHTTP, vb.)",
+        label: "UI'da gösterilen isim",
+        connectorData: "objectType'a özgü konfigürasyon objesi",
+        processTypeIcon: "opsiyonel ikon adı"
+      }
+    }
+  },
+
+  edgeSchema: {
+    fields: {
+      id: "reactflow__edge-<sourceId>-<targetId>",
+      source: "kaynak node id",
+      target: "hedef node id",
+      height: 0.0,
+      width: 0.0,
+      style: { strokeWidth: 2, height: 0, width: 0, zIndex: -1 },
+      processSteps: []
+    }
+  },
+
+  nodeTypes: {
+    processStart: {
+      description: "Her flow'un tek zorunlu giris noktasi. connectorType ile trigger tipi belirlenir.",
+      required: true,
+      connectorDataKey: "StartState",
+      commonFields: { connectorType: "REST|SOAP|File|SFTP|JMS|JDBC|Timer|OData|OFTP2|MQTT|Mail|Direct|RabbitMQ|Solace|Kafka|Opcua|AS2|AWSSimpleQueue", isSyncEndpoint: true, concurrentConsumers: 1, addSearchterm: false, httpsEnable: false, isIdempotentActive: false, fileMaxSize: "10000" },
+      byConnectorType: {
+        REST: {
+          restAddress: "/api/endpoint",
+          restMethod: "GET|POST|PUT|DELETE|PATCH",
+          restAuthenticationAllowDefaultBasicCredentials: "true=tum MIP kullanicilari Basic Auth ile cagirabilir | false=sadece belirtilen kullanicilar",
+          restAuthenticationAllowExplicitUsers: "true=sadece restAuthenticationUsernames listesindeki service-user'lar cagirabilir",
+          restAuthenticationUsernames: ["service-user-username-1", "service-user-username-2"],
+          basicAuthResourceName: "Bu Start node'unu korumak icin degil — polling senaryolarinda kullanilan BASIC credential adi (mip_create_credential ile olusturulmus)",
+          oAuth2ResourceName: "polling senaryolarinda OAUTH_2 credential adi",
+          clientCertificateResourceName: "opsiyonel sertifika adi",
+          headerRows: [],
+          isRestPollingActive: false,
+          restPollingBody: "opsiyonel",
+          restPollingTime: "opsiyonel",
+          restPollAuthorization: "opsiyonel",
+          restKeepHeaders: true,
+          restAuthenticationAllowPerUserGlobalPrimaryCredential: false,
+          restAuthenticationTrustGatewayAuthentication: false,
+          userRole: "",
+          ftpUserName: "", ftpPassword: "", ftpHost: "", ftpPort: "",
+          fileAdditionalParametersCheck: false,
+          plc4xAutoReconnect: false,
+          isWebdavIdempotentActive: false,
+          isWebdavSkipEmptyFile: false,
+          webdavPort: 0,
+          authNote: "KRITIK: restAuthenticationUsernames icin SERVICE USER username kullanilir. processHTTP/processSOAP icin ise mip_create_credential ile olusturulan credential adi kullanilir — bunlar farklidir."
+        },
+        SOAP: {
+          soapAddress: "/soap/endpoint",
+          soapWSDLResource: "service.wsdl",
+          soapWSDLBinding: "SoapBinding",
+          soapWSDLOperation: "OperationName",
+          soapAuthenticationAllowExplicitUsers: "true=sadece soapAuthenticationUsernames listesindeki service-user'lar cagirabilir",
+          soapAuthenticationAllowDefaultBasicCredentials: "true=tum MIP kullanicilari Basic Auth ile cagirabilir",
+          soapAuthenticationUsernames: ["service-user-username-1"],
+          authNote: "KRITIK: soapAuthenticationUsernames icin SERVICE USER username kullanilir. processSOAP node'undaki basicAuthResourceName ise mip_create_credential ile olusturulan CREDENTIAL ADIDIR."
+        },
+        File: { fileDirectory: "/path/to/dir", fileName: "*.xml", fileArchiveDirectory: "opsiyonel", fileCron: "0 0/1 * 1/1 * ? *", fileProcessingMode: "MOVE|DELETE", fileCharset: "UTF-8", skipEmptyFile: true },
+        SFTP: { sftpHost: "sftp.example.com", sftpPort: "22", sftpUserName: "user", sftpPassword: "pass", privateKeyAlias: "opsiyonel", authenticationMethod: "username|privateKey", fileDirectory: "/remote/path", fileName: "*.csv", fileCron: "0 9 * * *" },
+        Timer: { timerCron: "0 0/1 * 1/1 * ? *", directName: "opsiyonel" },
+        JMS: { jmsUrl: "broker.host.com", jmsPort: "61616", jmsTopicName: "QUEUE.NAME", jmsAuthName: "credential-ref", jmsIsLocalConnection: false, jmsIsEncrypted: false, jmsIsCompressed: false, jmsIsTransferExchangeProperties: false, jmsMaxConcurrentCustomers: 1, jmsInErrorRetryInterval: "1000" },
+        JDBC: { jdbcUrl: "jdbc:sqlserver://host:1433;database=DB", jdbcQuery: "SELECT * FROM table", jdbcCron: "0 0/5 * * * ?", jdbcReturnType: "xml|json" },
+        Mail: { imapAddress: "imap.office365.com", mailCredential: "credential-ref", mailCron: "0 0/5 * * * ?" },
+        Direct: { directName: "direct-endpoint-adi", directIsAsync: false },
+        MQTT: { mqttBroker: "mqtt-broker.host.com", mqttPort: "8883", mqttTopic: "topic/name", mqttAuthName: "credential-ref", mqttVersion: "3" },
+        Kafka: { kafkaBroker: "kafka-broker.host.com", kafkaPort: "9093", kafkaGroupId: "consumer-group-id", kafkaQueue: "topic-name", kafkaAuthName: "credential-ref", kafkaAdditionalParameters: "security.protocol=SSL", kafkaCertificateName: "opsiyonel", kafkaHeadersModels: [] },
+        RabbitMQ: { rabbitMqBroker: "rabbitmq.host.com", rabbitMqPort: "5672", rabbitMqQueue: "queue-name", rabbitMqExchangeName: "exchange-name", rabbitMqRoutingKey: "opsiyonel", rabbitMqAuthName: "credential-ref", rabbitMqHeaderRows: [] },
+        Solace: { solaceBroker: "solace-broker.host.com", solacePort: "5550", solaceQueue: "queue.name", solaceVpn: "vpn-adi", solaceAuthName: "credential-ref" },
+        Opcua: { opcuaHost: "opcua.host.com", opcuaApplicationName: "ClientAppName", opcuaApplicationUri: "urn:example:client", opcuaBasicAuthenticationId: "credential-ref", opcuaIsAnonymousLogin: false, opcuaAllowedSecurityPolicies: "Basic256", opcuaKeyStoreName: "opsiyonel" },
+        OData: { odataHttpAddress: "https://odata.service.com", odataResourcePath: "EntitySet", odataOperation: "GET", odataVersion: "v2.0|v4.0", odataContentType: "JSON", odataHttpAuthentication: "none|basic|oauth2", odataBasicAuthResourceName: "opsiyonel", odataOAuth2ResourceName: "opsiyonel", odataQueryOptions: "optional-query", odataFields: "{}", odataCron: "0 0/5 * * * ?", odataHttpTimeout: "3000" },
+        AS2: { as2Uri: "as2/receive", as2From: "MY_COMPANY_AS2", as2To: "PARTNER_AS2_ID", as2EdiMessageType: "application/edifact", clientCertificateName: "cert-adi", clientPrivateKeyName: "key-adi" },
+        AWSSimpleQueue: { awsCredential: "credential-ref", awsCron: "0 0/1 * * * ?", bucketName: "opsiyonel", objectKey: "opsiyonel" }
+      }
+    },
+    processEnd: { description: "Flow cikis noktasi. Birden fazla olabilir.", connectorDataKey: null, fields: { label: "End" } },
+    processHTTP: {
+      description: "REST/HTTP cagrisi yapan node. Auth icin MUTLAKA once mip_create_credential ile credential olusturulup o isim referans verilmeli.",
+      connectorDataKey: "HTTPState",
+      authGuide: {
+        NONE:   "httpAuthorization: 'None' — basicAuthResourceName ve oAuth2ResourceName bos birakilir.",
+        BASIC:  "httpAuthorization: 'Basic' + basicAuthResourceName: '<BASIC tipinde credential adi>' — mip_create_credential ile credentialType:'BASIC' olusturulmus olmali.",
+        OAUTH2: "httpAuthorization: 'OAuth2' + oAuth2ResourceName: '<OAUTH_2 tipinde credential adi>' — mip_create_credential ile credentialType:'OAUTH_2' olusturulmus olmali.",
+        WARNING: "basicAuthResourceName ve oAuth2ResourceName ALANLARI service-user username degil, mip_create_credential ile olusturulan credential ADIDIR. Service user username buraya YAZILMAZ."
+      },
+      realExamples: [
+        { desc: "Basic Auth ornegi", state: { httpAddress: "https://api.example.com/endpoint", httpMethod: "POST", httpAuthorization: "Basic", basicAuthResourceName: "MY_API_CRED", oAuth2ResourceName: "", proxyEnable: false, httpTimeout: "30000", withBody: false, retryDelay: 0, maxRetries: 0, restAllowedHeaders: false } },
+        { desc: "OAuth2 ornegi", state: { httpAddress: "https://api.spotify.com/v1/me", httpMethod: "GET", httpAuthorization: "OAuth2", basicAuthResourceName: "", oAuth2ResourceName: "MY_OAUTH2_CRED", proxyEnable: false, httpTimeout: "3000", withBody: false, retryDelay: 0, maxRetries: 0, restAllowedHeaders: false } },
+        { desc: "Auth yok ornegi", state: { httpAddress: "https://api.example.com/public", httpMethod: "GET", httpAuthorization: "None", basicAuthResourceName: "", oAuth2ResourceName: "", proxyEnable: false, httpTimeout: "30000", withBody: false, retryDelay: 0, maxRetries: 0, restAllowedHeaders: false } }
+      ],
+      fields: { httpAddress: "https://api.example.com/endpoint", httpMethod: "GET|POST|PUT|DELETE|PATCH|HEAD", httpTimeout: "30000", maxRetries: 0, retryDelay: 0, httpAuthorization: "None|Basic|OAuth2", basicAuthResourceName: "BASIC tipinde credential adi (httpAuthorization='Basic' ise dolu olmali)", oAuth2ResourceName: "OAUTH_2 tipinde credential adi (httpAuthorization='OAuth2' ise dolu olmali)", proxyEnable: false, withBody: false, restAllowedHeaders: false, restAllowedHeaderList: [] }
+    },
+    processSOAP: {
+      description: "SOAP web servisi cagrisi. Auth icin MUTLAKA once mip_create_credential ile credential olusturulup o isim referans verilmeli.",
+      connectorDataKey: "SOAPState",
+      authGuide: {
+        NONE:   "soapAuthorization: 'None' — basicAuthResourceName bos birakilir.",
+        BASIC:  "soapAuthorization: 'Basic' + basicAuthResourceName: '<BASIC tipinde credential adi>' — mip_create_credential ile credentialType:'BASIC' olusturulmus olmali.",
+        CERT:   "ClientCertificateResourceName: '<sertifika adi>' — mip_upload_certificate ile yuklenmis sertifika adi.",
+        WARNING: "basicAuthResourceName ALANI service-user username degil, mip_create_credential ile olusturulan credential ADIDIR."
+      },
+      realExamples: [
+        { desc: "Basic Auth SOAP ornegi", state: { soapAddress: "http://service.example.com/soap", soapAction: "http://tempuri.org/IService/Op", soapEnvelope: true, soapAuthorization: "Basic", basicAuthResourceName: "MY_SOAP_CRED", oAuth2ResourceName: "", ClientCertificateResourceName: "", proxyEnable: false, soapTimeout: "60000", retryDelay: 0, maxRetries: 0, soapAllowedHeaders: false } },
+        { desc: "Auth yok SOAP ornegi", state: { soapAddress: "http://service.example.com/soap", soapAction: "http://tempuri.org/IService/Op", soapEnvelope: true, soapAuthorization: "None", basicAuthResourceName: "", oAuth2ResourceName: "", ClientCertificateResourceName: "", proxyEnable: false, soapTimeout: "60000", retryDelay: 0, maxRetries: 0, soapAllowedHeaders: false } }
+      ],
+      fields: { soapAddress: "http://service.example.com/soap", soapAction: "http://tempuri.org/IService/Operation", soapEnvelope: true, soapTimeout: "60000", soapAuthorization: "None|Basic", basicAuthResourceName: "BASIC tipinde credential adi (soapAuthorization='Basic' ise dolu olmali)", oAuth2ResourceName: "OAUTH_2 tipinde credential adi (opsiyonel)", ClientCertificateResourceName: "sertifika adi (opsiyonel, mip_upload_certificate ile yuklenmus olmali)", contentType: "text/xml (opsiyonel)", maxRetries: 0, retryDelay: 0, proxyEnable: false, soapAllowedHeaders: false, soapAllowedHeaderList: [] }
+    },
+    processScript: {
+      description: "Groovy script calistirir. Exchange body/header/property tam erisim. .groovy resource'a referans verir.",
+      connectorDataKey: "ScriptState",
+      fields: { scriptPath: "scriptDosyasi.groovy", logScriptPayload: true, nodeId: "opsiyonel" },
+      groovyGuide: {
+        signature: "Her MIP Groovy script su imzayi ZORUNLU kullanmalidir:\n  import org.apache.camel.Exchange;\n  def Exchange executeMessage(Exchange message) {\n    // kodunuz\n    return message;\n  }",
+        bodyAccess: {
+          read: "def body = message.getIn().getBody(String.class)",
+          write: "message.getIn().setBody(yeniBody)",
+          alternative: "message.in.getBody(String.class) veya message.in.setBody(...) da kullanilabilir"
+        },
+        headerAccess: {
+          read: "message.getIn().getHeader('headerAdi')",
+          write: "message.getIn().setHeader('Content-Type', 'application/json')"
+        },
+        propertyAccess: {
+          read: "message.getProperty('propAdi')  // null-safe: message.getProperty('propAdi') ?: 'default'",
+          write: "message.setProperty('propAdi', deger)"
+        },
+        commonImports: [
+          "import org.apache.camel.Exchange;",
+          "import groovy.json.JsonSlurper;",
+          "import groovy.json.JsonBuilder;",
+          "import groovy.xml.XmlSlurper;",
+          "import groovy.xml.MarkupBuilder;",
+          "import org.apache.camel.http.base.HttpOperationFailedException;"
+        ],
+        jsonPattern: "def req = new groovy.json.JsonSlurper().parseText(message.getIn().getBody(String.class))\ndef val = req?.field ?: 'default'\nmessage.getIn().setBody(new groovy.json.JsonBuilder([key: val]).toPrettyString())",
+        xmlReadPattern: "def root = new groovy.xml.XmlSlurper().parseText(message.getIn().getBody(String.class))\ndef val = root.elementName.text()",
+        xmlWritePattern: "def writer = new StringWriter()\ndef xml = new groovy.xml.MarkupBuilder(writer)\nxml.Root {\n  Field(value)\n}\nmessage.getIn().setBody(writer.toString())",
+        exceptionPattern: "def ex = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Exception.class)\nif (ex instanceof org.apache.camel.http.base.HttpOperationFailedException) {\n  def statusCode = ex.getStatusCode()\n  def responseBody = ex.getResponseBody()\n}",
+        nullSafeOp: "?.  operatoru kullan: parsedJson?.field?.subfield ?: 'default'",
+        realExamples: [
+          "// Property set etmek:\nmessage.setProperty('invoiceNo', req.invoiceNo.toString())",
+          "// Header set etmek:\nmessage.getIn().setHeader('Authorization', 'Basic ' + ('user:pass'.bytes.encodeBase64().toString()))",
+          "// Body XML'den deger cekip property yapmak:\ndef root = new groovy.xml.XmlSlurper().parseText(message.getIn().getBody(String.class))\nmessage.setProperty('desc', root.weather.description.text())",
+          "// Liste donusumu:\ndef items = parsedJson.collect { item -> [id: item?.id ?: '', name: item?.name ?: ''] }"
+        ]
+      }
+    },
+    processXSLTMapping: { description: "XSLT donusumu uygular. .xsl resource'a referans verir.", connectorDataKey: "XSLTState", fields: { xsltPath: "transform.xsl", logXSLTPayload: false, nodeId: "opsiyonel" } },
+    processSetContext: { description: "Payload'dan deger cikarir, exchangeProperty veya header olarak saklar. useSimpleQuery=true ise contextBody ile body'yi rebuild eder.", connectorDataKey: "SetContextState", fields: { nodeId: "", useSimpleQuery: "false=propertyRows/headerRows kullan | true=contextBody ile body'yi yeniden yaz", contextBody: "useSimpleQuery=true oldugunda body expression: uid=dollar{exchangeProperty.uid}&pwd=dollar{exchangeProperty.pwd}", propertyRows: [{ id: 0, propertyName: "propAdi", propertyType: "Constant|Expression|XPath|JSONPath|Header|Property", propertyValue: "string | ${exchangeProperty.x}=='true' | /TedarikciPaketleri/Item | $.TedarikciPaketleri.Item | messageid123 | //status" }], headerRows: [{ id: 0, headerName: "Content-Type", headerType: "Constant|Expression|XPath|JSONPath|Header|Property", headerValue: "string | ${exchangeProperty.x}=='true' | /TedarikciPaketleri/Item | $.TedarikciPaketleri.Item | messsageId123 | //status" }] } },
+    processConverter: { description: "Veri formati donusumu. J2X=JSON-to-XML, X2J=XML-to-JSON, diger tipler de var.", connectorDataKey: "ConverterState", fields: { convertType: "J2X|X2J|CSV|JSON|XML|Avro|Parquet", xmlRootName: "J2X icin kok eleman adi (ornek: DenizbankResponse)", xmlNamespace: "opsiyonel namespace (ornek: http://mdpgroup.com/EHO veya a:http://...)", xmlElementForCSV: "CSV donusumunde XML eleman adi", jsonElementForCSV: "CSV donusumunde JSON eleman adi", csvSeparator: "CSV ayirici (varsayilan virgul)", csvHeaders: "CSV sutun basliklari", toXmlElement: "XML ciktida wrap eleman", toJsonElement: "JSON ciktida wrap eleman", isFieldNameAsHeader: false, isDisabledXMLRootElement: "X2J icin true yapilir (kok eleman XML'de zaten var)", isCsvHeaderIncludedAsFieldName: false, isEmptyStringNull: false, jsonElements: [] } },
+    processCondition: { description: "Kosullu dallanma. Her conditionsRow bir cikis dalini tanimlar. Her dal icin hedef node edge ile baglanmali.", connectorDataKey: "ConditionState", fields: { conditionsRows: [{ edgeId: "kaynakNodeId--hedefNodeId", conditionName: "dal-adi", conditionType: "Expression|XPath|JSONPath", conditionValue: "${exchangeProperty.status} == OK veya XPath ifadesi", isDefaultCondition: false }], nodeId: "opsiyonel" } },
+    processSplit: { description: "Mesaji parcalara boler, her parca akista devam eder.", connectorDataKey: "SplitState", fields: { splitType: "xPath|token|linefeed|regex", xpathExpression: "//items/item", isParallelProcessing: false, isKeepRootElement: false, isStopOnException: false, size: 1 } },
+    processSplitter: { description: "processSplit alternatifi.", connectorDataKey: null, fields: {} },
+    processFilter: { description: "Kosul saglanmayan mesaji durdurur.", connectorDataKey: "FilterState", fields: { pathTypes: "jsonPath|xPath", jsonpathExpression: "$.field", xpathExpression: "//element" } },
+    processMulticast: { description: "Mesaji birden fazla hedefe paralel veya sirali gonderir.", connectorDataKey: "MulticastState", fields: { isParallelProcessing: false } },
+    processDirect: { description: "In-memory yonlendirme. flowId ile baska flow'a baglanabilir.", connectorDataKey: "DirectState", fields: { directName: "direct-endpoint-adi", isAsync: false, flowId: "hedef-flow-id (opsiyonel, 41/48 ornekte mevcut)" } },
+    processJDBC: { description: "SQL sorgusu calistirir.", connectorDataKey: "JDBCState", fields: { database_name: "datasource-ref", jdbcQuery: "SELECT * FROM table", returnType: "JSON|XML", returnAsXml: false, nodeId: "opsiyonel" } },
+    processMail: { description: "SMTP ile e-posta gonderir. Alanlarda exchangeProperty desteklenir.", connectorDataKey: "MailState", fields: { address: "smtp.office365.com", port: 587, credentialName: "credential-ref", from: "sender@domain.com", to: "alici@domain.com", cc: "opsiyonel", bcc: "opsiyonel", subject: "konu", mailBody: "govde", bodyMimeType: "TEXT/Plain|TEXT/Html", bodyEncoding: "UTF-8", authentication: "LOGIN|PLAIN", encryption: "STARTTLS|SSL", addAttachments: false, attachments: [{ id: 0, attachmentName: "name", attachmentMimeType: "Application/JSON", attachmentExpression: "${exchangeProperty.x}=='true'" }], connectionTimeout: "opsiyonel", readTimeout: "opsiyonel", writeTimeout: "opsiyonel" } },
+    processSFTP: { description: "SFTP sunucusuna dosya yukler.", connectorDataKey: "SFTPState", fields: { host: "sftp.example.com", port: "22", userName: "user", password: "pass", authenticationMethod: "username|privateKey", privateKeyAlias: "opsiyonel", filePath: "/remote/path", fileName: "dosya.xml", fileEncoding: "UTF-8|Windows-1254", addMessageID: false, addTimeStamp: false, useTempMode: false, tempFileScheme: "UTF-8" } },
+    processFTP: { description: "FTP sunucusuna dosya gonderir.", connectorDataKey: "FTPState", fields: { host: "ftp.example.com", port: "21", userName: "user", password: "pass", filePath: "/remote/path", fileName: "output.txt", fileEncoding: "UTF-8", addMessageID: false, addTimeStamp: false, useTempMode: false, tempFileScheme: "UTF-8" } },
+    processFile: { description: "Yerel dosya sistemi okuma/yazma.", connectorDataKey: "FileState", fields: { filePath: "C:/output", fileName: "output.xml", addTimeStamp: false, addMessageID: false, useTempMode: false, tempFileScheme: ".tmp", fileEncoding: "UTF-8" } },
+    processWebdav: { description: "WebDAV sunucusuna dosya yukler.", connectorDataKey: "WebdavState", fields: { host: "https://webdav.example.com", port: 443, credentialName: "credential-ref", directory: "/integration/outgoing", fileName: "output.txt", isAutoCreate: false, isAddMessageId: false, isAddTimestamp: false } },
+    processErrorSubflow: { description: "Flow'a hata yonetimi ekler. processStartError ve processEndError ile birlikte kullanilir.", connectorDataKey: null, fields: {} },
+    processStartError: { description: "Hata akisinin baslangici.", connectorDataKey: null, fields: {} },
+    processEndError: { description: "Hata akisinin sonu.", connectorDataKey: null, fields: {} },
+    processDelayer: { description: "Akisi ms cinsinden durdurur.", connectorDataKey: "DelayerState", fields: { delayer: 3000 } },
+    processDelay: { description: "Akisi geciktirir (processDelayer alternatifi).", connectorDataKey: null, fields: {} },
+    processLoop: { description: "Belirtilen sayida dongu calistirir.", connectorDataKey: "LoopState", fields: { loopCount: 3 } },
+    processAggregator: { description: "Birden fazla mesaji tek mesajda birlestir.", connectorDataKey: "AggregatorState", fields: { incomingFormat: "JSON|XML", correlationExpression: "$.correlationId" } },
+    processCounter: { description: "Mesaj sayaci.", connectorDataKey: "CounterState", fields: { counterName: "opsiyonel", mode: "INCREASE|DECREASE|RESET (opsiyonel)" } },
+    processEdifactConverter: { description: "EDIFACT ile XML arasinda donusum.", connectorDataKey: "EdifactConverterState", fields: { convertType: "EDIFACT_TO_XML|XML_TO_EDIFACT", singleLine: "false (opsiyonel)" } },
+    processTradacomsConverter: { description: "TRADACOMS EDI ile XML donusumu.", connectorDataKey: "TradacomsConverterState", fields: { convertType: "TRADACOMS_TO_XML|XML_TO_TRADACOMS", singleLine: false } },
+    processVDAConverter: { description: "VDA formati ile XML donusumu. Alman otomotiv standardi.", connectorDataKey: "VDAConverterState", fields: { convertType: "VDA_TO_XML|XML_TO_VDA (opsiyonel)", singleLine: "false (opsiyonel)", xsdPath: "VDA490500.xsd (opsiyonel)" } },
+    processEancomConverter: { description: "EANCOM EDI ile XML donusumu. Perakende/lojistik.", connectorDataKey: "EancomConverterState", fields: { convertType: "EANCOM_TO_XML|XML_TO_EANCOM", singleLine: false } },
+    processANSIX12Converter: { description: "ANSI X12 EDI ile XML donusumu. ABD standardi.", connectorDataKey: "ANSIX12ConverterState", fields: { convertType: "ANSIX12_TO_XML|XML_TO_ANSIX12 (opsiyonel)", singleLine: "false (opsiyonel)", xsdPath: "ASC_856004010.xsd (opsiyonel)" } },
+    processOdetteConverter: { description: "ODETTE EDI ile XML donusumu. Avrupa otomotiv.", connectorDataKey: "OdetteConverterState", fields: { convertType: "ODETTE_TO_XML|XML_TO_ODETTE (opsiyonel)", singleLine: "false (opsiyonel)" } },
+    processEdiExtractor: { description: "EDI mesajindan belirli segmentleri cikarir.", connectorDataKey: null, fields: {} },
+    processBase64Converter: { description: "Base64 encode veya decode islemi.", connectorDataKey: "Base64ConverterState", fields: { convertType: "ENCODE|DECODE" } },
+    processJMS: { description: "JMS kuyruguna mesaj gonderir.", connectorDataKey: "JMSState", fields: { url: "broker.host.com", port: "61616", topicName: "QUEUE.NAME", authName: "credential-ref", message: "${body}", isLocalConnection: false, isEncrypted: false, isCompressed: false, isTransferExchangeProperties: false, headerRows: [{ id: 0, headerName: "ornek", headerType: "Constant|Expression|JSONPath|Header|XPath", headerValue: "deger" }] } },
+    processMQTT: { description: "MQTT broker'a mesaj publish eder.", connectorDataKey: "MQTTState", fields: { broker: "mqtt-broker.host.com", port: "8883", topic: "topic/name", authName: "credential-ref", message: "${body}", version: "3|5", qos: "0|1|2" } },
+    processKafka: { description: "Kafka topic'e mesaj gonderir.", connectorDataKey: "KafkaState", fields: { broker: "kafka-broker.host.com", port: "9093", groupId: "consumer-group", queue: "topic-name", authName: "credential-ref", certificateName: "opsiyonel", isCompressed: false, isEncrypted: false, message: "${body}", headerRows: [{ id: 0, headerName: "ornek", headerType: "Constant|Expression|JSONPath|Header|XPath", headerValue: "deger" }], additionalParameters: "security.protocol=SSL" } },
+    processRabbitMq: { description: "RabbitMQ'ya mesaj gonderir.", connectorDataKey: "RabbitMqState", fields: { broker: "rabbitmq.host.com", port: "5672", queue: "queue-name", exchangeName: "exchange-name", routingKey: "opsiyonel", authName: "credential-ref", isCompressed: false, isEncrypted: false, message: "${body}", headerRows: [] } },
+    processSolace: { description: "Solace mesaj broker'ina mesaj gonderir.", connectorDataKey: "SolaceState", fields: { broker: "solace-broker.host.com", port: "5550", queue: "queue.name", vpn: "vpn-adi", authName: "credential-ref", isCompressed: false, isEncrypted: false, message: "${body}" } },
+    processGooglePubsub: { description: "Google Cloud Pub/Sub'a mesaj gonderir.", connectorDataKey: "GooglePubsubState", fields: { googlePubsubCredential: "credential-ref", projectId: "gcp-project-id", destinationName: "topic-adi", attributeRows: [] } },
+    processOpcua: { description: "OPC-UA sunucusu ile iletisim. Endustriyel IoT.", connectorDataKey: "OPCUAState", fields: { host: "opcua.host.com", applicationName: "ClientAppName", applicationUri: "urn:example:client", basicAuthenticationId: "credential-ref", isAnonymousLogin: false, allowedSecurityPolicies: "Basic256|None", keyStoreName: "opsiyonel", keyAlias: "opsiyonel", dataType: "String|Int|Float", nodeIds: "[\"ns=2;s=Node/Id\"]" } },
+    processOdata: { description: "OData REST servisi cagrisi.", connectorDataKey: "OdataState", fields: { httpAddress: "https://odata.service.com", resourcePath: "EntitySet", operation: "GET|POST|PUT|DELETE", odataVersion: "v2.0|v4.0", httpAuthentication: "none|basic|oauth2", basicAuthResourceName: "opsiyonel", oAuth2ResourceName: "opsiyonel", httpTimeout: "3000", contentType: "JSON|XML", queryOptions: "tam-manuel-odata-query-string", queryFields: { "FieldName": true }, queryFilters: [], queryFilterConditions: [], querySorts: [], fieldsSelection: {}, keyValue: "", top: "opsiyonel", skip: "opsiyonel", useManualQuery: false, headerRows: [] } },
+    processRFC: { description: "SAP RFC/BAPI cagrisi.", connectorDataKey: "RFCState", fields: { rfcDestinationName: "SAP-RFC-destination-adi" } },
+    processMongoDb: { description: "MongoDB koleksiyonuna sorgu veya yazma islemi.", connectorDataKey: "MongoDbState", fields: { databaseName: "database-adi", collectionName: "collection-adi", operation: "find|insert|update|delete|getColStats", query: "{}", filter: "{}", sort: "{}", limit: "", multiUpdate: "false", returnType: "JSON", bulkWriteModel: [] } },
+    processAwsS3Storage: { description: "AWS S3 bucket'a dosya yukler veya indirir.", connectorDataKey: "AwsS3StorageState", fields: { awsCredential: "credential-ref", region: "us-east-1", bucketName: "bucket-adi", objectKey: "path/to/object", contentEncoding: "gzip (opsiyonel)", storageClass: "STANDARD|REDUCED_REDUNDANCY" } },
+    processAwsQueue: { description: "AWS SQS kuyruguna mesaj gonderir.", connectorDataKey: "AwsQueueState", fields: { awsCredential: "credential-ref", queueName: "sqs-queue-adi", region: "us-east-1" } },
+    processAwsEventBridge: { description: "AWS EventBridge'e event gonderir.", connectorDataKey: "AwsEventBridgeState", fields: { awsCredential: "credential-ref", region: "us-east-1", eventBusName: "event-bus-adi", operation: "putEvent", ruleName: "opsiyonel", targetArn: "opsiyonel", entries: [{ source: "service.name", detail: "{}", detailType: "EventType", resources: "[]" }] } },
+    processAzureQueue: { description: "Azure Storage Queue'ya mesaj gonderir.", connectorDataKey: "AzureQueueState", fields: { azureCredential: "credential-ref", accountName: "storage-account-adi", queueName: "queue-adi" } },
+    processSalesforceBulkApi: { description: "Salesforce Bulk API ile toplu veri islemi.", connectorDataKey: "SalesforceBulkApiState", fields: { salesforceClientCredential: "client-credential", salesforceUserCredential: "user-credential", objectName: "Account|Contact|vb.", operation: "insert|update|upsert|delete", processType: "Bulk Data", bulkOperation: "Create Job|Query Job", apiVersion: "56.0", columnDelimiter: "COMMA|TAB|PIPE", lineEnding: "LF|CRLF", fieldNames: "opsiyonel", externalId: "opsiyonel", conditionExpression: "opsiyonel", limit: "opsiyonel" } },
+    processSalesforceRestQuery: { description: "Salesforce SOQL ile veri sorgular.", connectorDataKey: "SalesforceRestQueryState", fields: { salesforceClientCredential: "client-credential", salesforceUserCredential: "user-credential", processType: "SOQL Query", query: "SELECT Id, Name FROM Account WHERE Industry = 'Technology'", apiVersion: "56.0", includeDeletedRecords: false } },
+    processOFTP2: { description: "OFTP2 protokolu ile dosya transferi. Otomotiv EDI'da yaygin.", connectorDataKey: "OFTP2State", fields: { oftp2ConnectionName: 0, host: "oftp2.partner.com", port: 6619, encoding: "ISO-8859-1|UTF-8", fileName: "dosya-adi", fileFormat: "Unstructured|Fixed length|Variable", fileDescription: "opsiyonel", sfid: "O0013000FIRMAADIKOD", isCompressed: false, isEncrypted: false, isSigned: false, signAlgorithm: "MD5|SHA1 (opsiyonel)" } },
+    processAS2: { description: "AS2 protokolu ile B2B EDI dosya transferi. Imzalama ve sifreleme destekler.", connectorDataKey: "AS2State", fields: { as2From: "MY_COMPANY_AS2_ID", as2To: "PARTNER_AS2_ID", uri: "as2/receive", hostname: "as2.partner.com", port: 443, ediMessageType: "application/edifact|application/x-edi-x12", messageStructure: "PLAIN|CMS", subject: "mesaj konusu", sendMdn: true, signMdn: true, encryptingAlgorithm: "AES128_CBC|AES256_CBC|3DES", signingAlgorithm: "SHA256WITHRSA|SHA1WITHRSA", isCharsetConversionEnabled: false, clientPrivateKeyId: "key-id", clientPrivateKeyName: "key-adi", clientCertificateId: "opsiyonel", clientCertificateName: "opsiyonel", serverCertificateId: "opsiyonel", serverCertificateName: "opsiyonel", mdnMessageTemplate: "opsiyonel" } },
+    conditionEdge: { description: "processCondition cikisindaki kosullu edge. Node degil, edge tipidir, otomatik olusur.", connectorDataKey: null }
+  },
+
+
+  importantNotes: [
+    "id, createdDate, createdBy, lastModifiedDate, lastModifiedBy alanlarını yeni flow'larda EKLEME — MIP bunları otomatik atar.",
+    "flowLocked: 0 olmalı (1 = kilitli flow, düzenlenemez).",
+    "position değerleri UI'da düzgün görünüm için 300px aralıklı set edilmeli (x: 0, 300, 600, 900...).",
+    "Paralel branch'lerde y koordinatı değiştirilmeli (üst: y:0, alt: y:150).",
+    "Credential/resource referansları (basicAuthResourceName, scriptPath, vb.) MIP'te önceden tanımlı olmalıdır.",
+    "Groovy script yazarken MUTLAKA 'def Exchange executeMessage(Exchange message)' imzasini kullan. message.in.body degil, message.getIn().getBody(String.class) kullan. Her zaman message'i return et.",
+    "Groovy'de body okuma: message.getIn().getBody(String.class) | body yazma: message.getIn().setBody(...) | property: message.setProperty/getProperty | header: message.getIn().setHeader/getHeader",
+    "flowPackageId, mevcut bir package'a referans vermelidir.",
+    "Yeni flow oluşturulurken flowId benzersiz olmalıdır — mevcut flow'larla çakışmamalı.",
+    "KRİTİK — CREDENTIAL vs SERVICE USER farkı: processHTTP/processSOAP node'larındaki basicAuthResourceName ve oAuth2ResourceName alanları SERVICE USER username DEĞİL, mip_create_credential ile oluşturulan CREDENTIAL ADIDIR. Adım sırası: 1) mip_create_credential ile BASIC veya OAUTH_2 tipinde credential oluştur, 2) processHTTP/processSOAP node'unda o credential adını basicAuthResourceName veya oAuth2ResourceName alanına yaz.",
+    "SERVICE USER ne zaman kullanılır: Service user'lar MIP platformuna erişmek için kullanılır (UI girişi, API çağrısı, Start node'unu tetiklemek). processHTTP/processSOAP içinde DIŞ sisteme gidecek çağrıda service user kullanılmaz — credential kullanılır.",
+    "Start node güvenliği: REST/SOAP Start node'unda restAuthenticationUsernames veya soapAuthenticationUsernames alanı doluysa BURAYA service-user username yazılabilir. Bu alan dışarıdan bu endpoint'i kimlerin çağırabileceğini kısıtlar.",
+    "processHTTP Basic Auth akışı: mip_create_credential(credentialType:'BASIC', basicAuthUsername:'user', password:'pass') → processHTTP node'unda httpAuthorization:'Basic', basicAuthResourceName:'<credential_adı>'",
+    "processHTTP OAuth2 akışı: mip_create_credential(credentialType:'OAUTH_2', oAuth2GrantType:'CLIENT_CREDENTIALS', oAuth2TokenUrl:..., oAuth2ClientId:..., oAuth2ClientSecret:...) → processHTTP node'unda httpAuthorization:'OAuth2', oAuth2ResourceName:'<credential_adı>'"
+  ]
+};
+
+// ─── Tool Definitions ─────────────────────────────────────────────────────────
+const TOOLS = [
+  // ── Monitoring ──
+  {
+    name: "mip_download_logs",
+    description: "MIP monitoring loglarını indirir. Flow bazlı successful/error/delivering sayılarını döner.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        type: {
+          type: "string",
+          description: "Log tipleri, virgülle ayrılmış: SUCCESS,ERROR,DELIVERING",
+          default: "SUCCESS,ERROR,DELIVERING",
+        },
+        paginationPage: { type: "number", description: "Sayfa numarası (opsiyonel)" },
+        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel)" },
+        paginationSort: { type: "string", description: "Sıralama (opsiyonel, örn: 'desc,flowId')" },
+      },
+      required: ["startDate", "endDate"],
+    },
+  },
+  {
+    name: "mip_download_payload",
+    description: "Belirli bir messageId'ye ait payload'ı indirir ve dosyaya kaydeder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string", description: "Message ID" },
+        isPayloadOut: { type: "boolean", description: "true = payload out, false = payload in" },
+      },
+      required: ["messageId", "isPayloadOut"],
+    },
+  },
+  {
+    name: "mip_download_log_details_payload",
+    description: "Log detaylarına ait payload'ı messageId ve nodeId ile indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string", description: "Message ID" },
+        nodeId: { type: "string", description: "Node ID" },
+        isPayloadOut: { type: "boolean", description: "true = payload out, false = payload in" },
+      },
+      required: ["messageId", "nodeId", "isPayloadOut"],
+    },
+  },
+  {
+    name: "mip_download_attachment_by_id",
+    description: "Belirli bir attachment ID'si ile attachment indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Attachment ID" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "mip_download_all_attachments",
+    description: "messageId ve nodeId'ye ait tüm attachment'ları zip olarak indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string", description: "Message ID" },
+        nodeId: { type: "string", description: "Node ID" },
+      },
+      required: ["messageId", "nodeId"],
+    },
+  },
+  {
+    name: "mip_get_system_logs",
+    description: "Sistem log dosyasını tarih aralığına göre indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+      },
+      required: ["startDate", "endDate"],
+    },
+  },
+
+  // ── Integration Flow ──
+  {
+    name: "mip_export_packages_and_flows",
+    description: "Belirtilen package ve flow ID'lerini zip olarak export eder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        packageIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Export edilecek package ID listesi (null = tüm package'lar)",
+        },
+        flowIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Export edilecek flow ID listesi (boş = tüm flow'lar)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_import_packages_and_flows",
+    description: "Daha önce export edilmiş bir zip dosyasından package ve flow'ları import eder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: { type: "string", description: "Import edilecek zip dosyasının tam yolu" },
+      },
+      required: ["filePath"],
+    },
+  },
+
+  // ── Flow Mapping ──
+  {
+    name: "mip_export_flow_mappings",
+    description: "Belirtilen flow mapping ID'lerini export eder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: {
+          type: "array",
+          items: { type: "number" },
+          description: "Export edilecek flow mapping ID listesi",
+        },
+      },
+      required: ["ids"],
+    },
+  },
+  {
+    name: "mip_import_flow_mappings",
+    description: "Zip dosyasından flow mapping'leri belirtilen flow'a import eder.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId: { type: "string", description: "Hedef flow ID" },
+        filePath: { type: "string", description: "Import edilecek zip dosyasının tam yolu" },
+      },
+      required: ["flowId", "filePath"],
+    },
+  },
+
+  // ── Flow Mapping Sample ──
+  {
+    name: "mip_upload_flow_mapping_sample",
+    description: "Yeni bir flow mapping sample dosyası yükler.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: { type: "string", description: "Yüklenecek dosyanın tam yolu" },
+        name: { type: "string", description: "Sample adı" },
+        flowMappingId: { type: "number", description: "İlişkilendirilecek flow mapping ID" },
+      },
+      required: ["filePath", "name", "flowMappingId"],
+    },
+  },
+  {
+    name: "mip_reupload_flow_mapping_sample",
+    description: "Mevcut bir flow mapping sample dosyasını günceller.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Güncellenecek sample ID" },
+        filePath: { type: "string", description: "Yeni dosyanın tam yolu" },
+        name: { type: "string", description: "Yeni sample adı (opsiyonel)" },
+      },
+      required: ["id", "filePath"],
+    },
+  },
+  {
+    name: "mip_download_flow_mapping_sample",
+    description: "Belirli bir flow mapping sample dosyasını indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Sample ID" },
+      },
+      required: ["id"],
+    },
+  },
+
+  // ── Key Store ──
+  {
+    name: "mip_upload_key_store",
+    description: "Yeni bir key store (.jks) dosyası yükler.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: { type: "string", description: "Key store dosyasının tam yolu" },
+        entryName: { type: "string", description: "Key store entry adı" },
+        entryType: {
+          type: "string",
+          description: "Entry tipi: PRIVATE_KEY veya CERTIFICATE",
+        },
+        passphrase: { type: "string", description: "Key store şifresi" },
+      },
+      required: ["filePath", "entryName", "entryType", "passphrase"],
+    },
+  },
+  {
+    name: "mip_reupload_key_store",
+    description: "Mevcut bir key store'u günceller.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Güncellenecek key store ID" },
+        filePath: { type: "string", description: "Yeni key store dosyasının tam yolu" },
+        entryName: { type: "string", description: "Key store entry adı" },
+        entryType: { type: "string", description: "Entry tipi: PRIVATE_KEY veya CERTIFICATE" },
+        passphrase: { type: "string", description: "Mevcut şifre" },
+        newPassphrase: { type: "string", description: "Yeni şifre (opsiyonel)" },
+      },
+      required: ["id", "filePath", "entryName", "entryType", "passphrase"],
+    },
+  },
+  {
+    name: "mip_download_key_store",
+    description: "Belirli bir key store'u indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Key store ID" },
+        passphrase: { type: "string", description: "Key store şifresi" },
+      },
+      required: ["id", "passphrase"],
+    },
+  },
+
+  // ── Credentials ──
+  {
+    name: "mip_list_credentials",
+    description: "MIP'teki tüm user credential'ları listeler.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "İsme göre filtrele (opsiyonel)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_create_credential",
+    description: `MIP'e yeni bir user credential tanımlar. Desteklenen tipler:
+- BASIC: username/password (REST, SFTP, FTP, Mail vb.)
+- OAUTH_2: OAuth2 token tabanlı (grant type: CLIENT_CREDENTIALS | PASSWORD_CREDENTIALS | AUTHORIZATION_CODE)
+- AZURE: Azure AD client credentials
+- AWS: AWS access key/secret
+- GOOGLE_PUBSUB: Google servis hesabı JSON key
+
+BASIC:   { credentialName, credentialType:"BASIC", basicAuthUsername, password }
+OAUTH_2 client_credentials: { credentialName, credentialType:"OAUTH_2", oAuth2GrantType:"CLIENT_CREDENTIALS", oAuth2TokenUrl, oAuth2ClientId, oAuth2ClientSecret, oAuth2SendAs:"Body"|"Header" }
+OAUTH_2 password: { ...+ username, password }
+AZURE:   { credentialName, credentialType:"AZURE", azureTenantId, azureClientId, azureClientSecret }
+AWS:     { credentialName, credentialType:"AWS", awsAccessKey, awsSecretKey, awsRegion }
+GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJson }`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialName:          { type: "string",  description: "Benzersiz credential adı (flow'larda referans olarak kullanılır)" },
+        credentialType:          { type: "string",  description: "BASIC | OAUTH_2 | AZURE | AWS | GOOGLE_PUBSUB" },
+        basicAuthUsername:       { type: "string",  description: "BASIC/OAUTH_2: kullanıcı adı" },
+        password:                { type: "string",  description: "BASIC/OAUTH_2(PASSWORD): şifre" },
+        oAuth2GrantType:         { type: "string",  description: "OAUTH_2: CLIENT_CREDENTIALS | PASSWORD_CREDENTIALS | AUTHORIZATION_CODE" },
+        oAuth2TokenUrl:          { type: "string",  description: "OAUTH_2: token endpoint URL" },
+        oAuth2ClientId:          { type: "string",  description: "OAUTH_2: client ID" },
+        oAuth2ClientSecret:      { type: "string",  description: "OAUTH_2: client secret" },
+        oAuth2SendAs:            { type: "string",  description: "OAUTH_2: Body | Header (varsayılan: Body)" },
+        oAuth2Scope:             { type: "string",  description: "OAUTH_2: scope (opsiyonel)" },
+        oAuth2CheckAddBasicAuth: { type: "boolean", description: "OAUTH_2: Basic Auth da eklensin mi (varsayılan: false)" },
+        username:                { type: "string",  description: "OAUTH_2 PASSWORD_CREDENTIALS: kaynak sistem kullanıcı adı" },
+        azureTenantId:           { type: "string",  description: "AZURE: tenant ID" },
+        azureClientId:           { type: "string",  description: "AZURE: client ID" },
+        azureClientSecret:       { type: "string",  description: "AZURE: client secret" },
+        awsAccessKey:            { type: "string",  description: "AWS: access key ID" },
+        awsSecretKey:            { type: "string",  description: "AWS: secret access key" },
+        awsRegion:               { type: "string",  description: "AWS: region (örn: eu-central-1)" },
+        googleServiceAccountJson:{ type: "string",  description: "GOOGLE_PUBSUB: servis hesabı JSON içeriği" },
+      },
+      required: ["credentialName", "credentialType"],
+    },
+  },
+  {
+    name: "mip_update_credential",
+    description: "Mevcut bir credential'ı günceller. credentialName değiştirilemez.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialName:       { type: "string", description: "Güncellenecek credential adı" },
+        basicAuthUsername:    { type: "string", description: "BASIC: yeni kullanıcı adı" },
+        password:             { type: "string", description: "BASIC/OAUTH_2: yeni şifre" },
+        oAuth2TokenUrl:       { type: "string", description: "OAUTH_2: yeni token URL" },
+        oAuth2ClientId:       { type: "string", description: "OAUTH_2: yeni client ID" },
+        oAuth2ClientSecret:   { type: "string", description: "OAUTH_2: yeni client secret" },
+        oAuth2Scope:          { type: "string", description: "OAUTH_2: yeni scope" },
+        azureTenantId:        { type: "string", description: "AZURE: yeni tenant ID" },
+        azureClientId:        { type: "string", description: "AZURE: yeni client ID" },
+        azureClientSecret:    { type: "string", description: "AZURE: yeni client secret" },
+        awsAccessKey:         { type: "string", description: "AWS: yeni access key" },
+        awsSecretKey:         { type: "string", description: "AWS: yeni secret key" },
+      },
+      required: ["credentialName"],
+    },
+  },
+  {
+    name: "mip_delete_credential",
+    description: "Bir credential'ı siler. Herhangi bir flow tarafından kullanılıyorsa silinemez.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialName: { type: "string", description: "Silinecek credential adı" },
+      },
+      required: ["credentialName"],
+    },
+  },
+
+  // ── Service Users ──
+  {
+    name: "mip_list_service_users",
+    description: "MIP'teki service user'ları listeler. MIP UI veya açılan servislere erişmek için kullanılan kullanıcılar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        page:   { type: "number", description: "Sayfa numarası (0'dan başlar, varsayılan: 0)" },
+        size:   { type: "number", description: "Sayfa boyutu (varsayılan: 50)" },
+        search: { type: "string", description: "Kullanıcı adı veya e-posta ile filtrele (opsiyonel)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_create_service_user",
+    description: "Yeni bir MIP service user'ı oluşturur. Roller: developer, ui-user, monitoring, admin, service-user. ÖNEMLİ: Service user MIP platformuna erişmek için kullanılır (UI girişi, API çağrısı, Start node'unu tetiklemek). processHTTP/processSOAP node'larındaki basicAuthResourceName veya oAuth2ResourceName için SERVICE USER KULLANILMAZ — onlar için mip_create_credential kullanılır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        username: { type: "string", description: "Kullanıcı adı (benzersiz olmalı)" },
+        email:    { type: "string", description: "E-posta adresi" },
+        password: { type: "string", description: "Şifre" },
+        roles: {
+          type: "array",
+          items: { type: "string", enum: ["developer", "ui-user", "monitoring", "admin", "service-user"] },
+          description: "Kullanıcı rolleri. En az bir rol gereklidir."
+        },
+      },
+      required: ["username", "email", "password", "roles"],
+    },
+  },
+  {
+    name: "mip_update_service_user",
+    description: "Mevcut bir MIP service user'ını günceller.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        username: { type: "string", description: "Güncellenecek kullanıcı adı" },
+        email:    { type: "string", description: "Yeni e-posta adresi (opsiyonel)" },
+        password: { type: "string", description: "Yeni şifre (opsiyonel)" },
+        roles: {
+          type: "array",
+          items: { type: "string", enum: ["developer", "ui-user", "monitoring", "admin", "service-user"] },
+          description: "Yeni roller (opsiyonel)"
+        },
+      },
+      required: ["username"],
+    },
+  },
+  {
+    name: "mip_delete_service_user",
+    description: "Bir MIP service user'ını siler.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        username: { type: "string", description: "Silinecek kullanıcı adı" },
+      },
+      required: ["username"],
+    },
+  },
+  {
+    name: "mip_toggle_service_user_lock",
+    description: "Bir MIP service user'ının hesabını kilitler veya kilidini açar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        username: { type: "string", description: "Kullanıcı adı" },
+        locked:   { type: "boolean", description: "true = kilitle, false = kilidi aç" },
+      },
+      required: ["username", "locked"],
+    },
+  },
+
+  // ── Deploy / Undeploy / Log Level ──
+  {
+    name: "mip_deploy_flow",
+    description: "Belirtilen flow'u deploy eder. Import sonrası otomatik çalışmaz — sadece açıkça çağrıldığında deploy yapar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId:  { type: "string", description: "Deploy edilecek flow ID (örn: F_WEATHER_MCP)" },
+        version: { type: "number", description: "Deploy edilecek versiyon numarası. Belirtilmezse mevcut son versiyon otomatik alınır." },
+      },
+      required: ["flowId"],
+    },
+  },
+
+  {
+    name: "mip_undeploy_flow",
+    description: "Belirtilen flow'u undeploy eder (durdurur).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId: { type: "string", description: "Undeploy edilecek flow ID" },
+      },
+      required: ["flowId"],
+    },
+  },
+  {
+    name: "mip_set_flow_log_level",
+    description: "Deploy edilmiş bir flow'un log seviyesini değiştirir. Seviye: 1=Only I/O Payload (varsayılan), 2=All Steps",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId:   { type: "string", description: "Log seviyesi değiştirilecek flow ID" },
+        logLevel: { type: "number", description: "Log seviyesi: 1=Only I/O Payload (varsayılan), 2=All Steps" },
+      },
+      required: ["flowId", "logLevel"],
+    },
+  },
+
+  // ── Flow Schema & Builder ──
+  {
+    name: "mip_get_flow_schema",
+    description: "MIP flow, node, resource ve package şema bilgisini döner. Yeni flow oluşturmadan önce bu tool çağrılmalıdır. 310 gerçek flow analiz edilerek oluşturulmuş kapsamlı şema ve template kütüphanesi içerir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        section: {
+          type: "string",
+          description: "Belirli bir bölüm getir: 'nodeTypes' | 'flowTemplates' | 'validation' | 'expressionLanguage' | 'all' (varsayılan: 'all')",
+          default: "all"
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: "mip_create_and_import_flow",
+    description: "Verilen flow JSON tanımını doğrulayıp MIP'e import eder. flowData otomatik serialize edilir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flow: {
+          type: "object",
+          description: "Oluşturulacak flow tanımı. flowId, flowName, flowPackageId, flowData (array) alanları zorunlu."
+        }
+      },
+      required: ["flow"]
+    }
+  },
+
+  // ── Resource (Groovy / XSLT / vb.) ──
+  {
+    name: "mip_upload_resource",
+    description: "MIP'e Groovy script (.groovy) veya XSLT (.xsl) gibi resource dosyaları yükler. processScript ve processXSLTMapping node'larında kullanılır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath:     { type: "string", description: "Yüklenecek dosyanın tam yolu (.groovy veya .xsl)" },
+        flowId:       { type: "string", description: "Resource'un bağlanacağı flow ID (örn: F_WEATHER_MCP)" },
+        resourceName: { type: "string", description: "MIP'te görünecek resource adı (örn: weather_process.groovy)" },
+        resourceType: { type: "string", description: "Resource tipi: 'groovy' veya 'xsl'" },
+      },
+      required: ["filePath", "flowId", "resourceName", "resourceType"],
+    },
+  },
+  {
+    name: "mip_reupload_resource",
+    description: "MIP'teki mevcut bir Groovy veya XSLT resource dosyasını günceller.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id:           { type: "number", description: "Güncellenecek resource ID" },
+        filePath:     { type: "string", description: "Yeni dosyanın tam yolu" },
+        resourceName: { type: "string", description: "Yeni resource adı (opsiyonel)" },
+      },
+      required: ["id", "filePath"],
+    },
+  },
+  {
+    name: "mip_list_resources",
+    description: "MIP'teki tüm resource'ları listeler. Groovy ve XSLT dosyalarını görmek için kullanılır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId: { type: "string", description: "Belirli bir flow'a ait resource'ları filtrele (opsiyonel)" },
+      },
+      required: [],
+    },
+  },
+
+  // ── Certificate ──
+  {
+    name: "mip_upload_certificate",
+    description: "Yeni bir sertifika (.crt / .pem) dosyası yükler.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath: { type: "string", description: "Sertifika dosyasının tam yolu" },
+        name: { type: "string", description: "Sertifika adı" },
+      },
+      required: ["filePath", "name"],
+    },
+  },
+  {
+    name: "mip_reupload_certificate",
+    description: "Mevcut bir sertifikayı günceller.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Güncellenecek sertifika ID" },
+        filePath: { type: "string", description: "Yeni sertifika dosyasının tam yolu" },
+        name: { type: "string", description: "Yeni sertifika adı (opsiyonel)" },
+      },
+      required: ["id", "filePath"],
+    },
+  },
+  {
+    name: "mip_download_certificate",
+    description: "Belirli bir sertifikayı indirir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Sertifika ID" },
+      },
+      required: ["id"],
+    },
+  },
+];
+
+// ─── Tool Handlers ────────────────────────────────────────────────────────────
+async function handleTool(name, args) {
+  await getToken();
+  const headers = authHeaders();
+
+  switch (name) {
+    // ── Monitoring ──────────────────────────────────────────────────────────
+    case "mip_download_logs": {
+      const params = {
+        startDate: args.startDate,
+        endDate: args.endDate,
+        type: args.type ?? "SUCCESS,ERROR,DELIVERING",
+      };
+      if (args.paginationPage !== undefined) params.paginationPage = args.paginationPage;
+      if (args.paginationSize !== undefined) params.paginationSize = args.paginationSize;
+      if (args.paginationSort !== undefined) params.paginationSort = args.paginationSort;
+
+      const res = await axios.get(`${BASE_URL}/api/monitoring/logs`, {
+        headers,
+        params,
+      });
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_download_payload": {
+      const res = await axios.get(`${BASE_URL}/api/monitoring/logs/download-payload`, {
+        headers,
+        params: { messageId: args.messageId, isPayloadOut: args.isPayloadOut },
+        responseType: "arraybuffer",
+      });
+      const filename = extractFilename(res.headers, `payload_${args.messageId}.bin`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Payload indirildi: ${filePath}`;
+    }
+
+    case "mip_download_log_details_payload": {
+      const res = await axios.get(`${BASE_URL}/api/monitoring/log-details/download-payload`, {
+        headers,
+        params: {
+          messageId: args.messageId,
+          nodeId: args.nodeId,
+          isPayloadOut: args.isPayloadOut,
+        },
+        responseType: "arraybuffer",
+      });
+      const filename = extractFilename(res.headers, `log_details_${args.messageId}.bin`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Log detay payload indirildi: ${filePath}`;
+    }
+
+    case "mip_download_attachment_by_id": {
+      const res = await axios.get(
+        `${BASE_URL}/api/monitoring/attachments/${args.id}/download`,
+        { headers, responseType: "arraybuffer" }
+      );
+      const filename = extractFilename(res.headers, `attachment_${args.id}.bin`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Attachment indirildi: ${filePath}`;
+    }
+
+    case "mip_download_all_attachments": {
+      const res = await axios.get(`${BASE_URL}/api/monitoring/attachments/download`, {
+        headers,
+        params: { messageId: args.messageId, nodeId: args.nodeId },
+        responseType: "arraybuffer",
+      });
+      const filename = extractFilename(res.headers, `attachments_${args.messageId}.zip`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Attachment'lar indirildi: ${filePath}`;
+    }
+
+    case "mip_get_system_logs": {
+      const res = await axios.get(`${BASE_URL}/api/monitoring/logs/system-logs-file`, {
+        headers,
+        params: { startDate: args.startDate, endDate: args.endDate },
+        responseType: "arraybuffer",
+      });
+      const filename = extractFilename(res.headers, `system_logs_${args.startDate}_${args.endDate}.log`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Sistem logları indirildi: ${filePath}`;
+    }
+
+    // ── Credentials ──────────────────────────────────────────────────────────
+    case "mip_list_credentials": {
+      const params = { paginationSize: 200 };
+      if (args.filter) params.filter = args.filter;
+      const res = await axios.get(`${BASE_URL}/api/user-credentials`, { headers, params });
+      const items = Array.isArray(res.data) ? res.data : (res.data?.content ?? []);
+      const safe = items.map(({ password, clientSecret, privateKey, basicAuthPassword, oAuth2ClientSecret, azureClientSecret, awsSecretKey, googleServiceAccountJson, ...rest }) => rest);
+      return JSON.stringify(safe, null, 2);
+    }
+
+    case "mip_create_credential": {
+      const body = { oAuth2CheckAddBasicAuth: false, ...args };
+      const res = await axios.post(`${BASE_URL}/api/user-credentials`, body, { headers });
+      return `Credential oluşturuldu: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_update_credential": {
+      const { credentialName, ...updates } = args;
+      const res = await axios.put(`${BASE_URL}/api/user-credentials/${credentialName}`, updates, { headers });
+      return `Credential güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_delete_credential": {
+      const res = await axios.delete(`${BASE_URL}/api/user-credentials/${args.credentialName}`, { headers });
+      return `Credential silindi: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Service Users ────────────────────────────────────────────────────────
+    case "mip_list_service_users": {
+      const params = {};
+      if (args.page !== undefined) params.page = args.page;
+      if (args.size !== undefined) params.size = args.size;
+      if (args.search) params.search = args.search;
+      const res = await axios.get(`${BASE_URL}/api/service-users`, { headers, params });
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_create_service_user": {
+      const res = await axios.post(`${BASE_URL}/api/service-users`, {
+        username: args.username,
+        email: args.email,
+        password: args.password,
+        roles: args.roles,
+      }, { headers });
+      return `Service user oluşturuldu: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_update_service_user": {
+      const body = {};
+      if (args.email)    body.email    = args.email;
+      if (args.password) body.password = args.password;
+      if (args.roles)    body.roles    = args.roles;
+      const res = await axios.put(`${BASE_URL}/api/service-users/${args.username}`, body, { headers });
+      return `Service user güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_delete_service_user": {
+      const res = await axios.delete(`${BASE_URL}/api/service-users/${args.username}`, { headers });
+      return `Service user silindi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_toggle_service_user_lock": {
+      const res = await axios.put(
+        `${BASE_URL}/api/service-users/${args.username}/change-account-lock`,
+        { locked: args.locked },
+        { headers }
+      );
+      return `Hesap kilidi ${args.locked ? "aktifleştirildi" : "kaldırıldı"}: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Deploy / Undeploy / Log Level ────────────────────────────────────────
+    case "mip_deploy_flow": {
+      let version = args.version;
+      if (!version) {
+        const flowRes = await axios.get(`${BASE_URL}/api/flows/${args.flowId}`, { headers });
+        version = flowRes.data.version;
+      }
+      const res = await axios.post(
+        `${BASE_URL}/api/flows/${args.flowId}/deploy?version=${version}`,
+        null,
+        { headers }
+      );
+      return `Flow deploy edildi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_undeploy_flow": {
+      const res = await axios.put(
+        `${BASE_URL}/api/flows/${args.flowId}/undeploy`,
+        null,
+        { headers }
+      );
+      return `Flow undeploy edildi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_set_flow_log_level": {
+      if (![1, 2].includes(args.logLevel)) {
+        throw new Error("logLevel 1 (Only I/O Payload) veya 2 (All Steps) olmalıdır.");
+      }
+      const res = await axios.put(
+        `${BASE_URL}/api/flows/${args.flowId}/update-log-level?logLevel=${args.logLevel}`,
+        null,
+        { headers }
+      );
+      return `Log seviyesi güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Flow Schema & Builder ────────────────────────────────────────────────
+    case "mip_get_flow_schema": {
+      const section = args.section ?? "all";
+      if (section === "all") return JSON.stringify(MIP_FLOW_SCHEMA, null, 2);
+      if (MIP_FLOW_SCHEMA[section]) return JSON.stringify(MIP_FLOW_SCHEMA[section], null, 2);
+      return JSON.stringify({ error: `Bilinmeyen bölüm: ${section}. Geçerli değerler: ${Object.keys(MIP_FLOW_SCHEMA).join(", ")}` });
+    }
+
+    case "mip_create_and_import_flow": {
+      const flowDef = args.flow;
+      if (!flowDef.flowId || !flowDef.flowName || !flowDef.flowPackageId) {
+        throw new Error("flow.flowId, flow.flowName ve flow.flowPackageId zorunludur.");
+      }
+      // flowData array ise string'e serialize et
+      if (Array.isArray(flowDef.flowData)) {
+        flowDef.flowData = JSON.stringify(flowDef.flowData);
+      }
+      // Audit alanlarını temizle (MIP otomatik atar)
+      delete flowDef.id;
+      delete flowDef.createdDate;
+      delete flowDef.createdBy;
+      delete flowDef.lastModifiedDate;
+      delete flowDef.lastModifiedBy;
+
+      // Import için zip oluştur
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const ts = Date.now();
+      const packageObj = [{
+        packageId: flowDef.flowPackageId,
+        packageName: flowDef.flowPackageId,
+        packageDescription: `${flowDef.flowPackageId} paketi`
+      }];
+      zip.folder("flows").file(`flows.${ts}.json`, JSON.stringify([flowDef]));
+      zip.folder("packages").file(`packages.${ts}.json`, JSON.stringify(packageObj));
+      zip.folder("resources").file(`resources.${ts}.json`, JSON.stringify([]));
+
+      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+      const zipPath = path.join(DOWNLOAD_DIR, `create-flow-${flowDef.flowId}-${ts}.zip`);
+      fs.writeFileSync(zipPath, zipBuffer);
+
+      const form = new FormData();
+      form.append("filename", fs.createReadStream(zipPath));
+      const res = await axios.post(`${BASE_URL}/api/packages/flows/import`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Flow '${flowDef.flowId}' başarıyla oluşturuldu ve MIP'e import edildi.\nSonuç: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Integration Flow ─────────────────────────────────────────────────────
+    case "mip_export_packages_and_flows": {
+      const body = {
+        packageIds: args.packageIds ?? [null],
+        flowIds: args.flowIds ?? [],
+      };
+      const res = await axios.post(`${BASE_URL}/api/packages/flows/export`, body, {
+        headers: { ...headers, "Content-Type": "application/json" },
+        responseType: "arraybuffer",
+      });
+      const filename = extractFilename(res.headers, `exported-packages-and-flows.zip`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Package ve Flow'lar export edildi: ${filePath}`;
+    }
+
+    case "mip_import_packages_and_flows": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("filename", fs.createReadStream(args.filePath));
+      const res = await axios.post(`${BASE_URL}/api/packages/flows/import`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Import tamamlandı: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Flow Mapping ─────────────────────────────────────────────────────────
+    case "mip_export_flow_mappings": {
+      const res = await axios.post(
+        `${BASE_URL}/api/flow-mappings/export`,
+        { ids: args.ids },
+        {
+          headers: { ...headers, "Content-Type": "application/json" },
+          responseType: "arraybuffer",
+        }
+      );
+      const filename = extractFilename(res.headers, `exported-flow-mappings.zip`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Flow mapping'ler export edildi: ${filePath}`;
+    }
+
+    case "mip_import_flow_mappings": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      const res = await axios.post(
+        `${BASE_URL}/api/flows/${args.flowId}/flow-mappings/import`,
+        form,
+        { headers: { ...headers, ...form.getHeaders() } }
+      );
+      return `Flow mapping import tamamlandı: ${JSON.stringify(res.data)}`;
+    }
+
+    // ── Flow Mapping Sample ──────────────────────────────────────────────────
+    case "mip_upload_flow_mapping_sample": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      form.append("data", JSON.stringify({ name: args.name, flowMappingId: args.flowMappingId }));
+      const res = await axios.post(`${BASE_URL}/api/flow-mapping-samples/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Flow mapping sample yüklendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_reupload_flow_mapping_sample": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      if (args.name) {
+        form.append("data", JSON.stringify({ name: args.name }));
+      }
+      const res = await axios.put(
+        `${BASE_URL}/api/flow-mapping-samples/${args.id}/upload`,
+        form,
+        { headers: { ...headers, ...form.getHeaders() } }
+      );
+      return `Flow mapping sample güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_download_flow_mapping_sample": {
+      const res = await axios.get(
+        `${BASE_URL}/api/flow-mapping-samples/${args.id}/download`,
+        { headers, responseType: "arraybuffer" }
+      );
+      const filename = extractFilename(res.headers, `flow_mapping_sample_${args.id}.bin`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Flow mapping sample indirildi: ${filePath}`;
+    }
+
+    // ── Key Store ────────────────────────────────────────────────────────────
+    case "mip_upload_key_store": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      const data = {
+        entryName: args.entryName,
+        entryType: args.entryType,
+        passphrase: args.passphrase,
+      };
+      form.append("data", JSON.stringify(data));
+      const res = await axios.put(`${BASE_URL}/api/key-stores/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Key store yüklendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_reupload_key_store": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      const data = {
+        entryName: args.entryName,
+        entryType: args.entryType,
+        passphrase: args.passphrase,
+      };
+      if (args.newPassphrase) data.newPassphrase = args.newPassphrase;
+      form.append("data", JSON.stringify(data));
+      const res = await axios.put(`${BASE_URL}/api/key-stores/${args.id}/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Key store güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_download_key_store": {
+      const res = await axios.post(
+        `${BASE_URL}/api/key-stores/${args.id}/download`,
+        { passphrase: args.passphrase },
+        { headers: { ...headers, "Content-Type": "application/json" }, responseType: "arraybuffer" }
+      );
+      const filename = extractFilename(res.headers, `keystore_${args.id}.jks`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Key store indirildi: ${filePath}`;
+    }
+
+    // ── Resource (Groovy / XSLT) ─────────────────────────────────────────────
+    case "mip_upload_resource": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      form.append("data", JSON.stringify({
+        flowId: args.flowId,
+        resourceName: args.resourceName,
+        resourceType: args.resourceType,
+      }));
+      const res = await axios.post(`${BASE_URL}/api/resources/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Resource yüklendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_reupload_resource": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      if (args.resourceName) {
+        form.append("data", JSON.stringify({ resourceName: args.resourceName }));
+      }
+      const res = await axios.put(`${BASE_URL}/api/resources/${args.id}/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Resource güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_list_resources": {
+      const res = await axios.get(`${BASE_URL}/api/resources`, { headers });
+      let resources = res.data?.content ?? res.data;
+      if (args.flowId) {
+        resources = resources.filter(r => r.flowId === args.flowId);
+      }
+      return JSON.stringify(resources, null, 2);
+    }
+
+    // ── Certificate ──────────────────────────────────────────────────────────
+    case "mip_upload_certificate": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      form.append("data", JSON.stringify({ name: args.name }));
+      const res = await axios.post(`${BASE_URL}/api/certificates/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Sertifika yüklendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_reupload_certificate": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+      }
+      const form = new FormData();
+      form.append("file", fs.createReadStream(args.filePath));
+      if (args.name) {
+        form.append("data", JSON.stringify({ name: args.name }));
+      }
+      const res = await axios.put(`${BASE_URL}/api/certificates/${args.id}/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+      return `Sertifika güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_download_certificate": {
+      const res = await axios.get(
+        `${BASE_URL}/api/certificates/${args.id}/download`,
+        { headers, responseType: "arraybuffer" }
+      );
+      const filename = extractFilename(res.headers, `certificate_${args.id}.crt`);
+      const filePath = saveFile(Buffer.from(res.data), filename);
+      return `Sertifika indirildi: ${filePath}`;
+    }
+
+    default:
+      throw new Error(`Bilinmeyen tool: ${name}`);
+  }
+}
+
+// ─── MCP Server ───────────────────────────────────────────────────────────────
+const server = new Server(
+  { name: "mip-mcp-server", version: "1.0.0" },
+  { capabilities: { tools: {} } }
+);
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  try {
+    const result = await handleTool(name, args ?? {});
+    return { content: [{ type: "text", text: result }] };
+  } catch (err) {
+    const message = err?.response
+      ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}`
+      : err.message;
+    return {
+      content: [{ type: "text", text: `Hata: ${message}` }],
+      isError: true,
+    };
+  }
+});
+
+const transport = new StdioServerTransport();
+await server.connect(transport);

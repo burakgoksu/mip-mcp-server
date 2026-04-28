@@ -1,0 +1,34 @@
+{
+  "name": "@burakgoksu1/mip-mcp-server",
+  "version": "1.0.6",
+  "description": "MCP Server for MIP (MDP Integration Process) - MDP Group Integration Platform",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mip-mcp-server": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "mip",
+    "mdpgroup",
+    "integration",
+    "model-context-protocol"
+  ],
+  "author": "MDP Group",
+  "license": "MIT",
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "axios": "^1.7.2",
+    "form-data": "^4.0.0",
+    "jszip": "^3.10.1"
+  }
+}
