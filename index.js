@@ -145,14 +145,24 @@ const MIP_FLOW_SCHEMA = {
           authNote: "KRITIK: restAuthenticationUsernames icin SERVICE USER username kullanilir. processHTTP/processSOAP icin ise mip_create_credential ile olusturulan credential adi kullanilir — bunlar farklidir."
         },
         SOAP: {
-          soapAddress: "/soap/endpoint",
-          soapWSDLResource: "service.wsdl",
-          soapWSDLBinding: "SoapBinding",
-          soapWSDLOperation: "OperationName",
+          soapAddress: "MIP'in dis dunyaya acacagi endpoint path'i (orn: '/yigit_soap', '/eho/mip', '/F_TBS_START_SOAP'). '/' ile baslar. WSDL icindeki <soap:address location=...> DEGIL — onunla alakasiz.",
+          soapWSDLResource: "MIP'e mip_upload_resource(resourceType:'wsdl') veya mip_generate_wsdl/mip_upload_wsdl ile YUKLENMIS WSDL dosyasinin adi (orn: 'calculator.wsdl', 'OrderService.wsdl'). Yuklenmis dosya adiyla birebir eslesmek zorunda.",
+          soapWSDLBinding: "WSDL icindeki <wsdl:binding name=\"...\"> degerinin literal kopyasi. SABIT BIR FORMAT YOK — WSDL'i kim yazdiysa o ismi koymus. Hand-crafted/external WSDL'lerde dosyayi parse edip okumak gerekir, service name'den TURETME yapma. mip_generate_wsdl ile uretilen WSDL'de format: '<serviceName>Binding'.",
+          soapWSDLOperation: "WSDL icindeki <wsdl:operation name=\"...\"> degerinin literal kopyasi. WSDL'den okunmali — SOAP Start her cagride bu operation'a route eder.",
           soapAuthenticationAllowExplicitUsers: "true=sadece soapAuthenticationUsernames listesindeki service-user'lar cagirabilir",
           soapAuthenticationAllowDefaultBasicCredentials: "true=tum MIP kullanicilari Basic Auth ile cagirabilir",
           soapAuthenticationUsernames: ["service-user-username-1"],
-          authNote: "KRITIK: soapAuthenticationUsernames icin SERVICE USER username kullanilir. processSOAP node'undaki basicAuthResourceName ise mip_create_credential ile olusturulan CREDENTIAL ADIDIR."
+          authNote: "KRITIK: soapAuthenticationUsernames icin SERVICE USER username kullanilir. processSOAP node'undaki basicAuthResourceName ise mip_create_credential ile olusturulan CREDENTIAL ADIDIR.",
+          wsdlNote: "ZORUNLU: soapWSDLResource ile referans verilen WSDL dosyasinda her <xs:schema> / <xsd:schema> elementinde elementFormDefault=\"qualified\" bulunmalidir. mip_generate_wsdl tool'u bu degeri otomatik baked-in olarak uretir; mip_upload_wsdl tool'u eksik veya unqualified ise yukleme oncesi otomatik duzeltir.",
+          wsdlWorkflow: "SOAP Start iceren bir flow yaratmadan ONCE WSDL hazir olmalidir. Akis: 1) mip_generate_wsdl(serviceName, targetNamespace, operations, uploadAfter:true, flowId) ile uret+yukle (yeni WSDL) VEYA mip_upload_wsdl(filePath, flowId) ile var olan dosyayi yukle. 2) WSDL'in <wsdl:binding name=...> ve <wsdl:operation name=...> degerlerini oku (mip_generate_wsdl ciktisinda bindingMetadata olarak veriyor; hand-crafted dosyalarda WSDL'i parse et). 3) Bu degerleri SOAP Start StartState'e yaz: soapWSDLResource=<dosya_adi>, soapWSDLBinding=<binding ismi>, soapWSDLOperation=<operation ismi>, soapAddress='/<endpoint_path>'. 4) mip_create_and_import_flow cagir.",
+          realExamples: [
+            { desc: "Public Calculator WSDL (binding ismi 'CalculatorSoap' WSDL'den literal alindi)",
+              state: { connectorType: "SOAP", soapAddress: "/yigit_soap_example1", soapWSDLResource: "calculator.wsdl", soapWSDLBinding: "CalculatorSoap", soapWSDLOperation: "Add", soapAuthenticationAllowDefaultBasicCredentials: true, soapAuthenticationAllowExplicitUsers: false, soapAuthenticationUsernames: [] } },
+            { desc: "SAP-style WSDL (uzun ve underscore'lu binding ismi)",
+              state: { connectorType: "SOAP", soapAddress: "/test123", soapWSDLResource: "SI_SAP_LIMAN_BAKIMMATIK_OUT_SYN.wsdl", soapWSDLBinding: "SI_SAP_LIMAN_BAKIMMATIK_OUT_SYNBinding", soapWSDLOperation: "SI_SAP_LIMAN_BAKIMMATIK_OUT_SYN", soapAuthenticationAllowDefaultBasicCredentials: true, soapAuthenticationAllowExplicitUsers: false, soapAuthenticationUsernames: [] } },
+            { desc: "Custom service ('OrderServiceBinding' / 'CreateOrder' tipik <Service>Binding pattern)",
+              state: { connectorType: "SOAP", soapAddress: "/F_TBS_START_SOAP", soapWSDLResource: "OrderService.wsdl", soapWSDLBinding: "OrderServiceBinding", soapWSDLOperation: "CreateOrder", soapAuthenticationAllowDefaultBasicCredentials: true, soapAuthenticationAllowExplicitUsers: false, soapAuthenticationUsernames: [] } }
+          ]
         },
         File: { fileDirectory: "/path/to/dir", fileName: "*.xml", fileArchiveDirectory: "opsiyonel", fileCron: "0 0/1 * 1/1 * ? *", fileProcessingMode: "MOVE|DELETE", fileCharset: "UTF-8", skipEmptyFile: true },
         SFTP: { sftpHost: "sftp.example.com", sftpPort: "22", sftpUserName: "user", sftpPassword: "pass", privateKeyAlias: "opsiyonel", authenticationMethod: "username|privateKey", fileDirectory: "/remote/path", fileName: "*.csv", fileCron: "0 9 * * *" },
@@ -310,9 +320,123 @@ const MIP_FLOW_SCHEMA = {
     "SERVICE USER ne zaman kullanılır: Service user'lar MIP platformuna erişmek için kullanılır (UI girişi, API çağrısı, Start node'unu tetiklemek). processHTTP/processSOAP içinde DIŞ sisteme gidecek çağrıda service user kullanılmaz — credential kullanılır.",
     "Start node güvenliği: REST/SOAP Start node'unda restAuthenticationUsernames veya soapAuthenticationUsernames alanı doluysa BURAYA service-user username yazılabilir. Bu alan dışarıdan bu endpoint'i kimlerin çağırabileceğini kısıtlar.",
     "processHTTP Basic Auth akışı: mip_create_credential(credentialType:'BASIC', basicAuthUsername:'user', password:'pass') → processHTTP node'unda httpAuthorization:'Basic', basicAuthResourceName:'<credential_adı>'",
-    "processHTTP OAuth2 akışı: mip_create_credential(credentialType:'OAUTH_2', oAuth2GrantType:'CLIENT_CREDENTIALS', oAuth2TokenUrl:..., oAuth2ClientId:..., oAuth2ClientSecret:...) → processHTTP node'unda httpAuthorization:'OAuth2', oAuth2ResourceName:'<credential_adı>'"
+    "processHTTP OAuth2 akışı: mip_create_credential(credentialType:'OAUTH_2', oAuth2GrantType:'CLIENT_CREDENTIALS', oAuth2TokenUrl:..., oAuth2ClientId:..., oAuth2ClientSecret:...) → processHTTP node'unda httpAuthorization:'OAuth2', oAuth2ResourceName:'<credential_adı>'",
+    "KRİTİK — SOAP Start (Sender) WSDL kuralı: SOAP Start adapter'a baglanan WSDL'lerde her <xs:schema> elementinde elementFormDefault=\"qualified\" ZORUNLUDUR. Eksik veya unqualified WSDL ile flow düzgün çalışmaz. Yeni WSDL üretirken mip_generate_wsdl (otomatik baked-in) veya hand-crafted dosyalar için mip_upload_wsdl (otomatik validate + auto-fix) kullanılmalı; mip_upload_resource (resourceType:'wsdl') de çalışır ama validation yapmaz.",
+    "KRİTİK — SOAP Start iceren flow olusturma sirasi: 1) WSDL'i hazirla — yeni WSDL icin mip_generate_wsdl(uploadAfter:true, flowId), var olan dosya icin mip_upload_wsdl(filePath, flowId). 2) Binding ve operation isimlerini WSDL'den oku — mip_generate_wsdl ciktisi bindingMetadata olarak verir; hand-crafted/dis WSDL'lerde dosyayi parse edip <wsdl:binding name=...> ve <wsdl:operation name=...> literal degerlerini al (asla 'serviceName + Binding' tahmin etme; gercek ornekler: 'CalculatorSoap', 'IDOCBinding', 'EASoapBinding'). 3) SOAP Start StartState bloguna yaz: connectorType:'SOAP', soapAddress:'/<endpoint_path>' (MIP path, WSDL location DEGIL), soapWSDLResource:'<wsdl_dosya_adi>', soapWSDLBinding:'<wsdl_icindeki_binding_adi>', soapWSDLOperation:'<wsdl_icindeki_operation_adi>'. 4) mip_create_and_import_flow cagir. Auth icin 7/7 gercek ornek soapAuthenticationAllowDefaultBasicCredentials:true kullaniyor."
   ]
 };
+
+// ─── WSDL Helpers ─────────────────────────────────────────────────────────────
+// MIP, SOAP Start adapter icin yuklenen WSDL'lerde her <xs:schema> elementinde
+// elementFormDefault="qualified" olmasini zorunlu kilar. Bu deger eksikse veya
+// "unqualified" ise SOAP Sender flow'lari beklendigi gibi calismaz.
+function ensureElementFormDefaultQualified(wsdlContent) {
+  const warnings = [];
+  const schemaTagRegex = /<([\w-]+:)?schema\b([^>]*?)(\/?)>/g;
+  const result = wsdlContent.replace(schemaTagRegex, (match, prefix, attrs, selfClose) => {
+    const efdMatch = attrs.match(/elementFormDefault\s*=\s*"([^"]*)"/);
+    const ns = prefix ?? "";
+    if (efdMatch) {
+      if (efdMatch[1] !== "qualified") {
+        warnings.push(`<${ns}schema> uzerinde elementFormDefault="${efdMatch[1]}" bulundu, "qualified" ile degistirildi.`);
+        const newAttrs = attrs.replace(/elementFormDefault\s*=\s*"[^"]*"/, 'elementFormDefault="qualified"');
+        return `<${ns}schema${newAttrs}${selfClose}>`;
+      }
+      return match;
+    }
+    warnings.push(`<${ns}schema> uzerinde elementFormDefault yoktu, "qualified" enjekte edildi.`);
+    return `<${ns}schema${attrs} elementFormDefault="qualified"${selfClose}>`;
+  });
+  return { content: result, warnings, modified: warnings.length > 0 };
+}
+
+function escapeXml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function generateXsdElement(elementName, fields) {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    return `      <xsd:element name="${escapeXml(elementName)}">\n        <xsd:complexType>\n          <xsd:sequence/>\n        </xsd:complexType>\n      </xsd:element>`;
+  }
+  const fieldXml = fields.map(f => {
+    const name = escapeXml(f.name);
+    const type = f.type ?? "string";
+    const minOccurs = f.minOccurs ?? 0;
+    const maxOccurs = f.maxOccurs ?? 1;
+    const typeAttr = type.includes(":") ? type : `xsd:${type}`;
+    return `            <xsd:element name="${name}" type="${escapeXml(typeAttr)}" minOccurs="${minOccurs}" maxOccurs="${maxOccurs}"/>`;
+  }).join("\n");
+  return `      <xsd:element name="${escapeXml(elementName)}">\n        <xsd:complexType>\n          <xsd:sequence>\n${fieldXml}\n          </xsd:sequence>\n        </xsd:complexType>\n      </xsd:element>`;
+}
+
+function generateWsdl({ serviceName, targetNamespace, serviceAddress, operations }) {
+  if (!serviceName) throw new Error("generateWsdl: serviceName zorunlu.");
+  if (!targetNamespace) throw new Error("generateWsdl: targetNamespace zorunlu.");
+  if (!Array.isArray(operations) || operations.length === 0) {
+    throw new Error("generateWsdl: en az bir operation tanımlanmalı.");
+  }
+  const tns = targetNamespace;
+  const addr = serviceAddress || `http://localhost/soap/${serviceName}`;
+
+  const schemaElements = [];
+  for (const op of operations) {
+    if (!op.name) throw new Error("generateWsdl: her operation icin name zorunlu.");
+    schemaElements.push(generateXsdElement(`${op.name}Request`, op.request?.fields ?? []));
+    schemaElements.push(generateXsdElement(`${op.name}Response`, op.response?.fields ?? []));
+  }
+
+  const messages = operations.flatMap(op => [
+    `  <wsdl:message name="${op.name}RequestMessage">\n    <wsdl:part name="parameters" element="tns:${op.name}Request"/>\n  </wsdl:message>`,
+    `  <wsdl:message name="${op.name}ResponseMessage">\n    <wsdl:part name="parameters" element="tns:${op.name}Response"/>\n  </wsdl:message>`,
+  ]);
+
+  const portTypeOps = operations.map(op =>
+    `    <wsdl:operation name="${op.name}">\n      <wsdl:input message="tns:${op.name}RequestMessage"/>\n      <wsdl:output message="tns:${op.name}ResponseMessage"/>\n    </wsdl:operation>`
+  );
+
+  const bindingOps = operations.map(op => {
+    const action = op.soapAction ?? `${tns}/${op.name}`;
+    return `    <wsdl:operation name="${op.name}">\n      <soap:operation soapAction="${escapeXml(action)}"/>\n      <wsdl:input>\n        <soap:body use="literal"/>\n      </wsdl:input>\n      <wsdl:output>\n        <soap:body use="literal"/>\n      </wsdl:output>\n    </wsdl:operation>`;
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:tns="${escapeXml(tns)}"
+    targetNamespace="${escapeXml(tns)}">
+
+  <wsdl:types>
+    <xsd:schema targetNamespace="${escapeXml(tns)}" elementFormDefault="qualified">
+${schemaElements.join("\n")}
+    </xsd:schema>
+  </wsdl:types>
+
+${messages.join("\n")}
+
+  <wsdl:portType name="${serviceName}PortType">
+${portTypeOps.join("\n")}
+  </wsdl:portType>
+
+  <wsdl:binding name="${serviceName}Binding" type="tns:${serviceName}PortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+${bindingOps.join("\n")}
+  </wsdl:binding>
+
+  <wsdl:service name="${serviceName}">
+    <wsdl:port name="${serviceName}Port" binding="tns:${serviceName}Binding">
+      <soap:address location="${escapeXml(addr)}"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
+`;
+}
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
 const TOOLS = [
@@ -763,7 +887,18 @@ GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJ
   },
   {
     name: "mip_create_and_import_flow",
-    description: "Verilen flow JSON tanımını doğrulayıp MIP'e import eder. flowData otomatik serialize edilir.",
+    description: `Verilen flow JSON tanımını doğrulayıp MIP'e import eder. flowData otomatik serialize edilir.
+
+ÖN-KOŞUL — Flow icinde processStart node'u connectorType:"SOAP" ise:
+1) ONCE WSDL hazır olmalı. Yoksa once mip_generate_wsdl ile uret (uploadAfter:true + flowId vererek aynı çağrıda yükleyebilirsin), ya da var olan bir WSDL dosyasi icin mip_upload_wsdl kullan.
+2) WSDL'in MIP'te elementFormDefault="qualified" ile yuklendiginden emin ol (mip_generate_wsdl baked-in verir, mip_upload_wsdl auto-fix yapar, mip_upload_resource yapmaz).
+3) SOAP Start node'unun connectorData (StartState) icindeki UC alani WSDL ile eslestir:
+   - soapWSDLResource:  "<MIP'te yukledigin resourceName, orn: EchoService.wsdl>"
+   - soapWSDLBinding:   "<serviceName>Binding"   (mip_generate_wsdl uretiminde bu format)
+   - soapWSDLOperation: "<operation adi, orn: Echo>"
+Bu alanlar bos veya uyumsuz ise SOAP Start adapter calismaz.
+
+Diger node tipleri icin kural yok — SOAP Start (Sender) ozel.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -779,14 +914,14 @@ GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJ
   // ── Resource (Groovy / XSLT / vb.) ──
   {
     name: "mip_upload_resource",
-    description: "MIP'e Groovy script (.groovy) veya XSLT (.xsl) gibi resource dosyaları yükler. processScript ve processXSLTMapping node'larında kullanılır.",
+    description: "MIP'e Groovy script (.groovy), XSLT (.xsl/.xslt), XSD (.xsd) veya WSDL (.wsdl) resource dosyaları yükler. processScript / processXSLTMapping / processStart (SOAP) node'larında kullanılır. WSDL yüklerken elementFormDefault='qualified' zorunludur — hand-crafted WSDL'ler için mip_upload_wsdl tercih edilmeli (otomatik doğrular ve enjekte eder).",
     inputSchema: {
       type: "object",
       properties: {
-        filePath:     { type: "string", description: "Yüklenecek dosyanın tam yolu (.groovy veya .xsl)" },
+        filePath:     { type: "string", description: "Yüklenecek dosyanın tam yolu (.groovy / .xsl / .xslt / .xsd / .wsdl)" },
         flowId:       { type: "string", description: "Resource'un bağlanacağı flow ID (örn: F_WEATHER_MCP)" },
-        resourceName: { type: "string", description: "MIP'te görünecek resource adı (örn: weather_process.groovy)" },
-        resourceType: { type: "string", description: "Resource tipi: 'groovy' veya 'xsl'" },
+        resourceName: { type: "string", description: "MIP'te görünecek resource adı (örn: weather_process.groovy, EchoService.wsdl)" },
+        resourceType: { type: "string", description: "Resource tipi: 'groovy' | 'xsl' | 'xslt' | 'xsd' | 'wsdl'" },
       },
       required: ["filePath", "flowId", "resourceName", "resourceType"],
     },
@@ -806,13 +941,61 @@ GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJ
   },
   {
     name: "mip_list_resources",
-    description: "MIP'teki tüm resource'ları listeler. Groovy ve XSLT dosyalarını görmek için kullanılır.",
+    description: "MIP'teki tüm resource'ları listeler. Groovy / XSLT / XSD / WSDL dosyalarını görmek için kullanılır.",
     inputSchema: {
       type: "object",
       properties: {
         flowId: { type: "string", description: "Belirli bir flow'a ait resource'ları filtrele (opsiyonel)" },
       },
       required: [],
+    },
+  },
+
+  // ── WSDL (SOAP Sender icin) ──
+  {
+    name: "mip_generate_wsdl",
+    description: `MIP-uyumlu bir WSDL dosyasi uretir ve diske kaydeder. Olusturulan WSDL'de elementFormDefault="qualified" otomatik olarak baked-in gelir (MIP'in zorunlu kosulu).
+Tipik kullanim: SOAP Start (Sender) adapter icin yeni bir endpoint kontratı olusturmak. Uretilen dosya MIP_DOWNLOAD_DIR altina kaydedilir; istege bagli olarak ayni cagrida flow'a yuklenebilir (uploadAfter:true).
+Operation tanimlari: her operation icin request/response field listesi verilmelidir. Field type degeri xsd: prefix'siz yazilirsa otomatik xsd: ekleniyor (string, int, long, decimal, boolean, dateTime, date, base64Binary).`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        serviceName:     { type: "string", description: "WSDL service adi (orn: EchoService). Binding/PortType/Service isimleri bundan turetilir." },
+        targetNamespace: { type: "string", description: "WSDL targetNamespace (orn: http://mdpgroup.com/mip/echo)" },
+        serviceAddress:  { type: "string", description: "soap:address location degeri (opsiyonel, varsayilan: http://localhost/soap/<serviceName>)" },
+        operations: {
+          type: "array",
+          description: "Operation listesi. Her operation: { name, soapAction?, request:{fields:[{name,type,minOccurs?,maxOccurs?}]}, response:{fields:[...]} }",
+          items: {
+            type: "object",
+            properties: {
+              name:       { type: "string", description: "Operation adi (orn: Echo, GetOrder)" },
+              soapAction: { type: "string", description: "SOAPAction header (opsiyonel, varsayilan: <targetNamespace>/<name>)" },
+              request:  { type: "object", description: "Request element tanimi: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
+              response: { type: "object", description: "Response element tanimi: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
+            },
+            required: ["name"],
+          },
+        },
+        resourceName: { type: "string", description: "MIP'te gorunecek dosya adi. Varsayilan: <serviceName>.wsdl" },
+        outputPath:   { type: "string", description: "Kayit edilecek tam dosya yolu (opsiyonel, varsayilan MIP_DOWNLOAD_DIR/<resourceName>)" },
+        uploadAfter:  { type: "boolean", description: "true ise WSDL ureteldikten sonra dogrudan flowId'ye yuklenir (varsayilan: false)" },
+        flowId:       { type: "string", description: "uploadAfter=true ise yukleme yapilacak flow ID" },
+      },
+      required: ["serviceName", "targetNamespace", "operations"],
+    },
+  },
+  {
+    name: "mip_upload_wsdl",
+    description: `Bir WSDL dosyasini MIP'e SOAP Start (Sender) resource'u olarak yukler. Yukleme oncesinde dosya icindeki tum <xs:schema> / <xsd:schema> elementlerinde elementFormDefault="qualified" oldugunu dogrular; eksikse otomatik enjekte eder, "unqualified" ise "qualified" ile degistirir. Duzeltilmis dosya MIP_DOWNLOAD_DIR altina yazildiktan sonra MIP'e gonderilir. mip_upload_resource'a gore farki: WSDL-ozel dogrulama ve auto-fix yapar.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        filePath:     { type: "string", description: "Yuklenecek WSDL dosyasinin tam yolu" },
+        flowId:       { type: "string", description: "Resource'un baglanacagi flow ID (orn: F_SOAP_INBOUND)" },
+        resourceName: { type: "string", description: "MIP'te gorunecek dosya adi (orn: EchoService.wsdl). Verilmezse dosya adi kullanilir." },
+      },
+      required: ["filePath", "flowId"],
     },
   },
 
@@ -1278,6 +1461,91 @@ async function handleTool(name, args) {
         resources = resources.filter(r => r.flowId === args.flowId);
       }
       return JSON.stringify(resources, null, 2);
+    }
+
+    // ── WSDL (SOAP Sender icin) ──────────────────────────────────────────────
+    case "mip_generate_wsdl": {
+      const wsdlContent = generateWsdl({
+        serviceName:     args.serviceName,
+        targetNamespace: args.targetNamespace,
+        serviceAddress:  args.serviceAddress,
+        operations:      args.operations,
+      });
+
+      const resourceName = args.resourceName ?? `${args.serviceName}.wsdl`;
+      ensureDownloadDir();
+      const outPath = args.outputPath ?? path.join(DOWNLOAD_DIR, resourceName);
+      fs.writeFileSync(outPath, wsdlContent, "utf8");
+
+      let summary = `WSDL uretildi (elementFormDefault="qualified" baked-in): ${outPath}`;
+
+      if (args.uploadAfter) {
+        if (!args.flowId) {
+          throw new Error("uploadAfter=true ise flowId zorunlu.");
+        }
+        const form = new FormData();
+        form.append("file", fs.createReadStream(outPath));
+        form.append("data", JSON.stringify({
+          flowId: args.flowId,
+          resourceName,
+          resourceType: "wsdl",
+        }));
+        const res = await axios.post(`${BASE_URL}/api/resources/upload`, form, {
+          headers: { ...headers, ...form.getHeaders() },
+        });
+        summary += `\nMIP'e yuklendi (flowId=${args.flowId}): ${JSON.stringify(res.data)}`;
+      }
+
+      // SOAP Start node'unu kurarken kopyala-yapistir icin bind metadata
+      const bindingMetadata = {
+        soapWSDLResource:  resourceName,
+        soapWSDLBinding:   `${args.serviceName}Binding`,
+        soapWSDLOperation: args.operations[0].name,
+        availableOperations: args.operations.map(o => o.name),
+        portTypeName:      `${args.serviceName}PortType`,
+        serviceName:       args.serviceName,
+        targetNamespace:   args.targetNamespace,
+      };
+
+      return `${summary}
+
+SOAP Start connectorData'sina yazilacak alanlar (mip_create_and_import_flow icin):
+${JSON.stringify(bindingMetadata, null, 2)}
+
+--- WSDL Icerigi ---
+${wsdlContent}`;
+    }
+
+    case "mip_upload_wsdl": {
+      if (!fs.existsSync(args.filePath)) {
+        throw new Error(`Dosya bulunamadi: ${args.filePath}`);
+      }
+      const original = fs.readFileSync(args.filePath, "utf8");
+      const { content: fixed, warnings, modified } = ensureElementFormDefaultQualified(original);
+
+      ensureDownloadDir();
+      const baseName = args.resourceName ?? path.basename(args.filePath);
+      let uploadPath = args.filePath;
+      if (modified) {
+        uploadPath = path.join(DOWNLOAD_DIR, baseName);
+        fs.writeFileSync(uploadPath, fixed, "utf8");
+      }
+
+      const form = new FormData();
+      form.append("file", fs.createReadStream(uploadPath));
+      form.append("data", JSON.stringify({
+        flowId: args.flowId,
+        resourceName: baseName,
+        resourceType: "wsdl",
+      }));
+      const res = await axios.post(`${BASE_URL}/api/resources/upload`, form, {
+        headers: { ...headers, ...form.getHeaders() },
+      });
+
+      const validationNote = modified
+        ? `Dogrulama duzeltmeleri yapildi:\n- ${warnings.join("\n- ")}\nDuzeltilmis dosya: ${uploadPath}`
+        : `Dogrulama: tum <schema> elementlerinde elementFormDefault="qualified" zaten mevcut. Duzeltme gerekmedi.`;
+      return `WSDL yuklendi: ${JSON.stringify(res.data)}\n${validationNote}`;
     }
 
     // ── Certificate ──────────────────────────────────────────────────────────

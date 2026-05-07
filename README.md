@@ -2,6 +2,15 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.7 — SOAP Sender / WSDL support
+
+Previous versions only supported Groovy and XSLT resources end-to-end. SOAP Sender flows could not be built fully through the MCP because there was no way to generate or upload a WSDL and bind it to a `processStart` SOAP node. This release closes that gap.
+
+- **`mip_generate_wsdl`** — generates a MIP-compatible WSDL from a structured spec (service name, target namespace, operations with request/response fields). The generated WSDL has `elementFormDefault="qualified"` baked into every `<xs:schema>` (mandatory in MIP — without it, SOAP Sender flows do not work). Optional `uploadAfter:true` uploads the WSDL to a flow in the same call. The tool's response includes a `bindingMetadata` JSON block with the exact `soapWSDLResource`, `soapWSDLBinding`, `soapWSDLOperation` values to copy into the SOAP Start node.
+- **`mip_upload_wsdl`** — uploads a hand-crafted or external WSDL to a flow. Before upload, every `<xs:schema>` / `<xsd:schema>` element is checked for `elementFormDefault="qualified"`; if missing it is injected, if `unqualified` it is replaced. The corrected file is written under `MIP_DOWNLOAD_DIR` and uploaded; the original on disk is not modified.
+- **`mip_upload_resource`** — extended to accept `resourceType: 'wsdl' | 'xsd' | 'xslt'` in addition to the existing `'groovy' | 'xsl'`. No validation is applied for `wsdl` here — use `mip_upload_wsdl` if you want the auto-fix behavior.
+- **Schema knowledge updated** — `mip_get_flow_schema` now documents the SOAP Start ↔ WSDL binding workflow with three real-world examples (`CalculatorSoap`, `OrderServiceBinding`, `SI_SAP_LIMAN_BAKIMMATIK_OUT_SYNBinding`) so the AI assistant correctly extracts `<wsdl:binding name>` and `<wsdl:operation name>` literals from the WSDL rather than guessing from the service name. `soapAddress` is clarified as the MIP endpoint path (e.g. `/myService`), not the WSDL `<soap:address location>`.
+
 ## Requirements
 
 - Node.js >= 18
@@ -83,13 +92,15 @@ Add to your `.mcp.json` or Claude Code settings:
 | `mip_reupload_flow_mapping_sample` | Re-uploads a sample file for a flow mapping |
 | `mip_download_flow_mapping_sample` | Downloads a flow mapping sample file |
 
-### Resources (Groovy / XSLT)
+### Resources (Groovy / XSLT / XSD / WSDL)
 
 | Tool | Description |
 |---|---|
-| `mip_upload_resource` | Uploads a Groovy script (`.groovy`) or XSLT file (`.xsl`) to a flow |
-| `mip_reupload_resource` | Updates an existing Groovy or XSLT resource by ID |
+| `mip_upload_resource` | Uploads a Groovy (`.groovy`), XSLT (`.xsl` / `.xslt`), XSD (`.xsd`), or WSDL (`.wsdl`) file to a flow. For hand-crafted WSDLs prefer `mip_upload_wsdl` (auto-validates `elementFormDefault`). |
+| `mip_reupload_resource` | Updates an existing resource by ID |
 | `mip_list_resources` | Lists all resources; optionally filter by flow ID |
+| `mip_generate_wsdl` | Generates a MIP-compatible WSDL from a structured spec. `elementFormDefault="qualified"` is baked in. Returns the WSDL text plus `bindingMetadata` ready to paste into a SOAP Start node. Optional `uploadAfter:true` uploads to a flow in the same call. |
+| `mip_upload_wsdl` | Uploads a WSDL file to a flow with automatic validation: injects `elementFormDefault="qualified"` if missing, replaces `unqualified` with `qualified`. Original file on disk is not modified; corrected copy is written under `MIP_DOWNLOAD_DIR`. |
 
 ### Credentials
 
@@ -160,6 +171,28 @@ Create a BASIC credential named PARTNER_API with username and password, then use
 ```
 Create a service user john.doe@company.com with developer and ui-user roles.
 ```
+
+```
+Generate a WSDL named OrderService with operations CreateOrder (taking Customer, Amount) and GetOrderStatus (taking OrderId), upload it to flow F_ORDER_SOAP, and create a SOAP Start flow that exposes it at /orders.
+```
+
+```
+I have a WSDL at C:/wsdl/partner-service.wsdl. Upload it to flow F_PARTNER_SOAP and wire the SOAP Start step to use the first binding/operation defined in the file.
+```
+
+## SOAP Sender flow workflow
+
+When building a flow with a `processStart` of `connectorType: "SOAP"`, three fields in `StartState` must be populated together:
+
+| Field | Source |
+|---|---|
+| `soapWSDLResource` | The exact filename used when uploading the WSDL (e.g. `OrderService.wsdl`) |
+| `soapWSDLBinding` | The literal value of `<wsdl:binding name="...">` inside the WSDL — **read it from the file**, do not derive it from the service name (real-world bindings include `CalculatorSoap`, `IDOCBinding`, `SI_SAP_LIMAN_BAKIMMATIK_OUT_SYNBinding`) |
+| `soapWSDLOperation` | The literal value of `<wsdl:operation name="...">` you want to bind to |
+
+`soapAddress` is the path MIP exposes the endpoint at (e.g. `/myService`), not the `<soap:address location>` from the WSDL.
+
+For new WSDLs, `mip_generate_wsdl` returns a `bindingMetadata` block with all three values pre-computed so the AI assistant can copy them straight into the SOAP Start node.
 
 ## License
 
