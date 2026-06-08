@@ -2,6 +2,15 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.8 — Message-level & time-bucketed monitoring
+
+Previously the only monitoring tool, `mip_download_logs`, returned **aggregated** success/error/delivering counts per flow with no time information — so questions like "which hour of the day is quietest?" could not be answered. This release adds the message-level and chart endpoints the MIP web UI uses internally:
+
+- **`mip_get_flow_message_logs`** — per-message log list for a flow with millisecond `startDate`/`endDate` timestamps (the list shown when you click a flow in monitoring). Use it for hour-of-day / volume / load analysis. `type` accepts a **single** value (`SUCCESS` | `ERROR` | `DELIVERING`) — call once per status and merge; a comma-separated list returns HTTP 204. `startDate`/`endDate` filter at day granularity, so bucket by hour locally from each record's `startDate`. Empty result sets (204) are returned as an empty `content` array with a note rather than an error.
+- **`mip_get_message_counts`** — time-bucketed success/error totals for dashboard-style trends. `timeType` selects the bucket size: `DAY`, `WEEK`, `MONTH`, `YEAR` (**no hourly** option — use `mip_get_flow_message_logs` for sub-day analysis).
+- **`mip_get_message_completion_times`** — per-flow message count and average processing (completion) time over a date range; handy for spotting slow flows.
+- **`mip_generate_monitoring_report`** — one-shot **Excel (.xlsx) report**: pulls every message in a date (and optional `HH:MM` time) window across all/selected flows, buckets by hour, and writes a multi-sheet workbook (Summary, Hour distribution with quietest/busiest hour, Day×Hour heatmap, Flow×Hour heatmap, Daily totals, Flow summary) to `MIP_DOWNLOAD_DIR`. Built with the bundled `jszip` — no Excel dependency. Useful for picking the lowest-traffic maintenance window. Timestamps are used **as-is** (raw MIP server time; no clock-offset correction).
+
 ## What's new in 1.0.7 — SOAP Sender / WSDL support
 
 Previous versions only supported Groovy and XSLT resources end-to-end. SOAP Sender flows could not be built fully through the MCP because there was no way to generate or upload a WSDL and bind it to a `processStart` SOAP node. This release closes that gap.
@@ -136,7 +145,11 @@ Add to your `.mcp.json` or Claude Code settings:
 
 | Tool | Description |
 |---|---|
-| `mip_download_logs` | Downloads flow monitoring logs (success/error/delivering counts) by date range |
+| `mip_download_logs` | Downloads flow monitoring logs (aggregated success/error/delivering **counts**) by date range |
+| `mip_get_flow_message_logs` | Per-message log list for a flow with millisecond timestamps — for hour-of-day / volume analysis. `type` is a single status (SUCCESS/ERROR/DELIVERING) |
+| `mip_get_message_counts` | Time-bucketed success/error totals (`timeType`: DAY / WEEK / MONTH / YEAR; no hourly) |
+| `mip_get_message_completion_times` | Per-flow message count and average completion time over a date range |
+| `mip_generate_monitoring_report` | Generates a multi-sheet **Excel (.xlsx)** volume report for a date/time window (hour distribution, Day×Hour & Flow×Hour heatmaps); saved to `MIP_DOWNLOAD_DIR` |
 | `mip_get_system_logs` | Downloads system log file by date range |
 | `mip_download_payload` | Downloads payload (in or out) for a given message ID |
 | `mip_download_log_details_payload` | Downloads node-level payload for a given message ID and node ID |

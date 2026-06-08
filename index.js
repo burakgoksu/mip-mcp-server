@@ -462,6 +462,98 @@ const TOOLS = [
     },
   },
   {
+    name: "mip_get_flow_message_logs",
+    description:
+      "Bir flow'un MESAJ-BAZLI loglarını zaman damgasıyla döner (monitoring ekranında flow'a tıklayınca açılan liste). " +
+      "Her kayıt: messageId, status, startDate/endDate (milisaniye hassasiyetli timestamp), ERROR kayıtlarında ayrıca nodeId/errorMessage. " +
+      "Saat-bazlı hacim/yoğunluk analizi için bunu kullanın — mip_download_logs yalnızca toplam sayı verir, zaman bilgisi içermez. " +
+      "ÖNEMLİ: 'type' TEK değer kabul eder (SUCCESS | ERROR | DELIVERING); virgüllü/çoklu verince boş (204) döner. Tüm statüler için ayrı ayrı çağırıp birleştirin. " +
+      "startDate/endDate gün seviyesinde filtreler; saatlik kırılım için dönen kayıtların startDate alanından lokal olarak bucket'layın.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        flowId: { type: "string", description: "Flow ID (örn: F_SAP_TO_ICE_EDONUSUM)" },
+        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        type: {
+          type: "string",
+          description: "Tek statü değeri",
+          enum: ["SUCCESS", "ERROR", "DELIVERING"],
+          default: "SUCCESS",
+        },
+        paginationPage: { type: "number", description: "Sayfa numarası (0 tabanlı, opsiyonel)" },
+        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel, örn: 1000)" },
+        paginationSort: { type: "string", description: "Sıralama (opsiyonel, örn: 'asc,startDate')" },
+        filter: { type: "string", description: "Metin filtresi (opsiyonel)" },
+      },
+      required: ["flowId", "startDate", "endDate"],
+    },
+  },
+  {
+    name: "mip_get_message_counts",
+    description:
+      "Zaman bucket'larına göre toplam başarılı/hatalı mesaj sayısını döner (dashboard mesaj grafiği). " +
+      "timeType ile granülarite seçilir: DAY, WEEK, MONTH veya YEAR. SAATLİK (HOUR) DESTEKLENMEZ — saatlik kırılım için mip_get_flow_message_logs kullanın. " +
+      "Not: startDate/endDate parametresi yoktur; paginationSize kadar en güncel bucket döner.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeType: {
+          type: "string",
+          description: "Bucket granülaritesi",
+          enum: ["DAY", "WEEK", "MONTH", "YEAR"],
+          default: "DAY",
+        },
+        paginationSize: { type: "number", description: "Döndürülecek bucket sayısı (opsiyonel, örn: 60)" },
+      },
+      required: ["timeType"],
+    },
+  },
+  {
+    name: "mip_get_message_completion_times",
+    description:
+      "Tarih aralığında flow başına mesaj sayısını ve ortalama işlem (completion) süresini döner. " +
+      "Performans/yavaş flow analizi için kullanışlıdır (zaman damgası içermez).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel)" },
+      },
+      required: ["startDate", "endDate"],
+    },
+  },
+  {
+    name: "mip_generate_monitoring_report",
+    description:
+      "Belirtilen tarih (ve opsiyonel saat) aralığındaki monitoring mesajlarını çekip çok sayfalı bir EXCEL (.xlsx) raporu üretir ve MIP_DOWNLOAD_DIR'e kaydeder. " +
+      "Sayfalar: Özet, Saat (saat-bazlı dağılım + en sakin/yoğun saat), Gün x Saat ısı haritası, Flow x Saat ısı haritası, Günlük Toplam, Flow Özet. " +
+      "Bakım/güncelleme için en sakin saati bulmak ya da hacim analizi için kullanılır. Saat damgaları MIP sistem saatiyle (ham) işlenir, saat kayması düzeltmesi UYGULANMAZ. " +
+      "Not: startTime/endTime verilirse her gün içinde yalnızca o saat penceresindeki mesajlar sayılır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        startTime: { type: "string", description: "Günlük saat penceresi başlangıcı (HH:MM, opsiyonel)" },
+        endTime: { type: "string", description: "Günlük saat penceresi bitişi (HH:MM, opsiyonel)" },
+        flowIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Yalnızca bu flow'ları dahil et (opsiyonel; boş = aralıkta aktif tüm flow'lar)",
+        },
+        statuses: {
+          type: "array",
+          items: { type: "string", enum: ["SUCCESS", "ERROR", "DELIVERING"] },
+          description: "Dahil edilecek statüler (opsiyonel; varsayılan: hepsi)",
+        },
+        fileName: { type: "string", description: "Çıktı dosya adı (opsiyonel; .xlsx eklenir)" },
+      },
+      required: ["startDate", "endDate"],
+    },
+  },
+  {
     name: "mip_download_payload",
     description: "Belirli bir messageId'ye ait payload'ı indirir ve dosyaya kaydeder.",
     inputSchema: {
@@ -1038,6 +1130,201 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
   },
 ];
 
+// ─── Monitoring Excel Report Builder ──────────────────────────────────────────
+// Toplanmış aggregate'i çok sayfalı .xlsx'e (OOXML) çevirir. Harici Excel
+// kütüphanesi gerektirmez; jszip ile zip + el-yazımı XML üretir.
+// agg: { hour:[24]{s,e,d}, byDate:{date:n}, dateHour:{date:[24]}, flowHour:{flow:[24]}, flowTotals:{flow:{s,e,d}}, grandTotal }
+// meta: { startDate, endDate, startTime, endTime, flowCount, statuses[], grandTotal, truncated }
+async function buildMonitoringReportXlsx(agg, meta) {
+  const JSZip = (await import("jszip")).default;
+  const esc = (s) =>
+    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const colName = (n) => { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const N = (v, s) => ({ v, t: "n", s });
+  const S = (v, s) => ({ v, t: "s", s });
+  const tot = (h) => h.s + h.e + h.d;
+  const grand = meta.grandTotal || 0;
+
+  // cellXfs: 0 default | 1 header | 2 yeşil(min) | 3 kırmızı(max) | 4 percent | 5 bold | 6-9 heat
+  const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0%"/></numFmts>
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
+<fills count="9">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFC6EFCE"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFFFFCC"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEE391"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFEC44F"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFB6A4A"/></patternFill></fill>
+</fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="10">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/>
+<xf numFmtId="0" fontId="0" fillId="6" borderId="0" xfId="0" applyFill="1"/>
+<xf numFmtId="0" fontId="0" fillId="7" borderId="0" xfId="0" applyFill="1"/>
+<xf numFmtId="0" fontId="0" fillId="8" borderId="0" xfId="0" applyFill="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  const heat = (v, max) => { if (!v || !max) return 0; const r = v / max; if (r < 0.15) return 6; if (r < 0.4) return 7; if (r < 0.7) return 8; return 9; };
+  const cellXml = (addr, c) => {
+    if (c == null) return "";
+    const s = c.s ? ` s="${c.s}"` : "";
+    if (c.t === "s") return `<c r="${addr}"${s} t="inlineStr"><is><t xml:space="preserve">${esc(c.v)}</t></is></c>`;
+    return `<c r="${addr}"${s}><v>${c.v}</v></c>`;
+  };
+  const sheetXml = (rows, cols) => {
+    let body = "";
+    rows.forEach((row, ri) => {
+      let cellsX = "";
+      row.forEach((c, ci) => { if (c != null) cellsX += cellXml(`${colName(ci)}${ri + 1}`, c); });
+      body += `<row r="${ri + 1}">${cellsX}</row>`;
+    });
+    const colsX = cols ? `<cols>${cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("")}</cols>` : "";
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>${colsX}<sheetData>${body}</sheetData></worksheet>`;
+  };
+
+  // hangi saatler gösterilecek (saat filtresi varsa onunla sınırla)
+  const fromH = meta.startTime ? parseInt(meta.startTime.slice(0, 2), 10) : 0;
+  const toH = meta.endTime ? parseInt(meta.endTime.slice(0, 2), 10) : 23;
+  const hours = [];
+  for (let h = fromH; h <= toH; h++) hours.push(h);
+
+  const sheets = [];
+
+  // 1) Özet
+  {
+    const totals = hours.map((h) => tot(agg.hour[h]));
+    const withVal = hours.map((h, i) => [h, totals[i]]).filter((x) => x[1] > 0).sort((a, b) => a[1] - b[1]);
+    const minH = withVal[0], maxH = withVal[withVal.length - 1];
+    const rows = [
+      [S("MIP MONITORING HACİM RAPORU", 5)],
+      [S(`Tarih aralığı: ${meta.startDate} → ${meta.endDate}`)],
+      [S(`Saat aralığı: ${meta.startTime || "00:00"} - ${meta.endTime || "23:59"}`)],
+      [S(`Statüler: ${meta.statuses.join(", ")}`)],
+      [S(`Toplam mesaj: ${grand.toLocaleString("tr-TR")}   |   Flow sayısı: ${meta.flowCount}`)],
+      [],
+    ];
+    if (minH && maxH) {
+      rows.push([S("En sakin saat", 2), S(`${String(minH[0]).padStart(2, "0")}:00`, 2), N(minH[1], 2)]);
+      rows.push([S("En yoğun saat", 3), S(`${String(maxH[0]).padStart(2, "0")}:00`, 3), N(maxH[1], 3)]);
+    } else {
+      rows.push([S("Seçilen aralıkta kayıt bulunamadı.")]);
+    }
+    if (meta.truncated) rows.push([], [S("UYARI: Güvenlik limiti aşıldı; rapor kısmi veridir. Daha dar bir aralık seçin.", 3)]);
+    sheets.push({ name: "Özet", rows, cols: [18, 16, 12] });
+  }
+
+  // 2) Saat
+  {
+    const totals = hours.map((h) => tot(agg.hour[h]));
+    const max = Math.max(1, ...totals);
+    const nz = totals.filter((t) => t > 0);
+    const min = nz.length ? Math.min(...nz) : 0;
+    const rows = [[S("Saat", 1), S("Toplam", 1), S("Başarılı", 1), S("Hata", 1), S("Delivering", 1), S("Pay %", 1), S("Grafik", 1)]];
+    hours.forEach((h) => {
+      const c = agg.hour[h], t = tot(c);
+      const hi = t > 0 && t === min ? 2 : t === max ? 3 : 0;
+      rows.push([
+        S(`${String(h).padStart(2, "0")}:00`, hi),
+        N(t, hi), N(c.s), N(c.e), N(c.d),
+        { v: grand ? t / grand : 0, t: "n", s: 4 },
+        S("█".repeat(Math.round((t / max) * 40))),
+      ]);
+    });
+    rows.push([S("TOPLAM", 5), N(totals.reduce((a, b) => a + b, 0), 5)]);
+    sheets.push({ name: "Saat", rows, cols: [10, 10, 10, 8, 10, 9, 46] });
+  }
+
+  // 3) Gün x Saat (heatmap)
+  {
+    const dates = Object.keys(agg.dateHour).sort();
+    const maxCell = Math.max(1, ...dates.flatMap((d) => hours.map((h) => agg.dateHour[d][h])));
+    const rows = [[S("Tarih", 1), S("Toplam", 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
+    for (const d of dates) {
+      const arr = agg.dateHour[d];
+      const t = hours.reduce((a, h) => a + arr[h], 0);
+      rows.push([S(d), N(t), ...hours.map((h) => N(arr[h], heat(arr[h], maxCell)))]);
+    }
+    sheets.push({ name: "Gun x Saat", rows, cols: [12, 9, ...hours.map(() => 5)] });
+  }
+
+  // 4) Flow x Saat (heatmap)
+  {
+    const flowIds = Object.keys(agg.flowHour).sort((a, b) => agg.flowHour[b].reduce((x, y) => x + y, 0) - agg.flowHour[a].reduce((x, y) => x + y, 0));
+    const maxCell = Math.max(1, ...flowIds.flatMap((f) => hours.map((h) => agg.flowHour[f][h])));
+    const rows = [[S("Flow", 1), S("Toplam", 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
+    for (const f of flowIds) {
+      const arr = agg.flowHour[f];
+      const t = hours.reduce((a, h) => a + arr[h], 0);
+      rows.push([S(f), N(t), ...hours.map((h) => N(arr[h], heat(arr[h], maxCell)))]);
+    }
+    sheets.push({ name: "Flow x Saat", rows, cols: [44, 9, ...hours.map(() => 5)] });
+  }
+
+  // 5) Günlük Toplam
+  {
+    const dates = Object.keys(agg.byDate).sort();
+    const rows = [[S("Tarih", 1), S("Toplam mesaj", 1)]];
+    dates.forEach((d) => rows.push([S(d), N(agg.byDate[d])]));
+    sheets.push({ name: "Gunluk Toplam", rows, cols: [14, 14] });
+  }
+
+  // 6) Flow Özet
+  {
+    const ids = Object.keys(agg.flowTotals).sort((a, b) => {
+      const T = (x) => agg.flowTotals[x].s + agg.flowTotals[x].e + agg.flowTotals[x].d;
+      return T(b) - T(a);
+    });
+    const rows = [[S("Flow", 1), S("Başarılı", 1), S("Hata", 1), S("Delivering", 1), S("Toplam", 1)]];
+    ids.forEach((f) => {
+      const v = agg.flowTotals[f];
+      rows.push([S(f), N(v.s), N(v.e), N(v.d), N(v.s + v.e + v.d)]);
+    });
+    sheets.push({ name: "Flow Ozet", rows, cols: [44, 10, 8, 10, 10] });
+  }
+
+  // zip / xlsx
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}
+</Types>`);
+  zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`);
+  const xl = zip.folder("xl");
+  xl.file("workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets>${sheets.map((s, i) => `<sheet name="${esc(s.name).slice(0, 31)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`);
+  xl.folder("_rels").file("workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}
+<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+  xl.file("styles.xml", STYLES);
+  const ws = xl.folder("worksheets");
+  sheets.forEach((s, i) => ws.file(`sheet${i + 1}.xml`, sheetXml(s.rows, s.cols)));
+  return zip.generateAsync({ type: "nodebuffer" });
+}
+
 // ─── Tool Handlers ────────────────────────────────────────────────────────────
 async function handleTool(name, args) {
   await getToken();
@@ -1060,6 +1347,156 @@ async function handleTool(name, args) {
         params,
       });
       return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_get_flow_message_logs": {
+      const params = {
+        startDate: args.startDate,
+        endDate: args.endDate,
+        type: args.type ?? "SUCCESS",
+      };
+      if (args.paginationPage !== undefined) params.paginationPage = args.paginationPage;
+      if (args.paginationSize !== undefined) params.paginationSize = args.paginationSize;
+      if (args.paginationSort !== undefined) params.paginationSort = args.paginationSort;
+      if (args.filter !== undefined) params.filter = args.filter;
+
+      const res = await axios.get(
+        `${BASE_URL}/api/monitoring/flows/${encodeURIComponent(args.flowId)}/logs`,
+        { headers, params }
+      );
+      // 204 = bu kriterlerde kayıt yok (axios bunu hata saymaz, res.data boş gelir)
+      if (res.status === 204 || !res.data) {
+        return JSON.stringify(
+          { flowId: args.flowId, type: params.type, content: [], totalElements: 0, note: "Bu kriterlerde kayıt yok (HTTP 204)." },
+          null,
+          2
+        );
+      }
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_get_message_counts": {
+      const params = { timeType: args.timeType ?? "DAY" };
+      if (args.paginationSize !== undefined) params.paginationSize = args.paginationSize;
+      const res = await axios.get(`${BASE_URL}/api/message-counts`, { headers, params });
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_get_message_completion_times": {
+      const params = { startDate: args.startDate, endDate: args.endDate };
+      if (args.paginationSize !== undefined) params.paginationSize = args.paginationSize;
+      const res = await axios.get(`${BASE_URL}/api/monitoring/logs/message-completion-times`, {
+        headers,
+        params,
+      });
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_generate_monitoring_report": {
+      const { startDate, endDate } = args;
+      const startTime = args.startTime || null;
+      const endTime = args.endTime || null;
+      const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+      const tMin = startTime ? toMin(startTime) : null;
+      const tMax = endTime ? toMin(endTime) : null;
+
+      // 1) aralıktaki flow listesi + statü sayıları
+      const aggRes = await axios.get(`${BASE_URL}/api/monitoring/logs`, {
+        headers,
+        params: { startDate, endDate, paginationSize: 500 },
+      });
+      let flows = (aggRes.data?.content || []).map((f) => ({ id: f.flowId, s: f.successful, e: f.error, d: f.delivering }));
+      if (Array.isArray(args.flowIds) && args.flowIds.length) {
+        const set = new Set(args.flowIds);
+        flows = flows.filter((f) => set.has(f.id));
+      }
+      const wantStatuses = Array.isArray(args.statuses) && args.statuses.length
+        ? args.statuses
+        : ["SUCCESS", "ERROR", "DELIVERING"];
+
+      // 2) topla
+      const hour = Array.from({ length: 24 }, () => ({ s: 0, e: 0, d: 0 }));
+      const byDate = {}, dateHour = {}, flowHour = {}, flowTotals = {};
+      let grand = 0, pulled = 0, truncated = false;
+      const PAGE = 1000, SAFETY = 2000000;
+
+      for (const f of flows) {
+        const jobs = [];
+        if (f.s > 0 && wantStatuses.includes("SUCCESS")) jobs.push("SUCCESS");
+        if (f.e > 0 && wantStatuses.includes("ERROR")) jobs.push("ERROR");
+        if (f.d > 0 && wantStatuses.includes("DELIVERING")) jobs.push("DELIVERING");
+        for (const type of jobs) {
+          let page = 0, got = 0, total = null;
+          try {
+            while (true) {
+              const r = await axios.get(
+                `${BASE_URL}/api/monitoring/flows/${encodeURIComponent(f.id)}/logs`,
+                {
+                  headers,
+                  params: { startDate, endDate, type, paginationPage: page, paginationSize: PAGE, paginationSort: "asc,startDate" },
+                  validateStatus: (s) => s === 200 || s === 204,
+                }
+              );
+              if (r.status === 204 || !r.data || !Array.isArray(r.data.content) || r.data.content.length === 0) break;
+              if (total === null) total = r.data.totalElements;
+              for (const m of r.data.content) {
+                const ts = m.startDate;
+                if (!ts || ts.length < 16) continue;
+                const hh = parseInt(ts.slice(11, 13), 10);
+                const mm = parseInt(ts.slice(14, 16), 10);
+                if (Number.isNaN(hh)) continue;
+                if (tMin != null || tMax != null) {
+                  const cur = hh * 60 + (Number.isNaN(mm) ? 0 : mm);
+                  if (tMin != null && cur < tMin) continue;
+                  if (tMax != null && cur > tMax) continue;
+                }
+                const date = ts.slice(0, 10);
+                const k = m.status === "SUCCESS" ? "s" : m.status === "ERROR" ? "e" : "d";
+                hour[hh][k]++;
+                byDate[date] = (byDate[date] || 0) + 1;
+                (dateHour[date] ||= Array(24).fill(0))[hh]++;
+                (flowHour[f.id] ||= Array(24).fill(0))[hh]++;
+                const ft = (flowTotals[f.id] ||= { s: 0, e: 0, d: 0 }); ft[k]++;
+                grand++;
+              }
+              got += r.data.content.length;
+              pulled += r.data.content.length;
+              if (pulled >= SAFETY) { truncated = true; break; }
+              if (got >= (total ?? got) || r.data.last) break;
+              page++;
+            }
+          } catch (e) {
+            process.stderr.write(`uyarı: ${f.id}/${type} çekilemedi: ${e.message}\n`);
+          }
+          if (truncated) break;
+        }
+        if (truncated) break;
+      }
+
+      // 3) xlsx üret + kaydet
+      const meta = {
+        startDate, endDate, startTime, endTime,
+        flowCount: Object.keys(flowTotals).length,
+        statuses: wantStatuses, grandTotal: grand, truncated,
+      };
+      const buf = await buildMonitoringReportXlsx({ hour, byDate, dateHour, flowHour, flowTotals, grandTotal: grand }, meta);
+      let fileName = (args.fileName || `MIP_Monitoring_Raporu_${startDate}_${endDate}`).replace(/[^\w.\-]/g, "_");
+      if (!fileName.toLowerCase().endsWith(".xlsx")) fileName += ".xlsx";
+      const filePath = saveFile(buf, fileName);
+
+      const totals = hour.map((h) => h.s + h.e + h.d);
+      const nz = totals.map((t, i) => [i, t]).filter((x) => x[1] > 0).sort((a, b) => a[1] - b[1]);
+      const quietest = nz[0], busiest = nz[nz.length - 1];
+      const lines = [
+        `Excel raporu oluşturuldu: ${filePath}`,
+        `Aralık: ${startDate} → ${endDate}` + (startTime || endTime ? ` (saat ${startTime || "00:00"}-${endTime || "23:59"})` : ""),
+        `Toplam mesaj: ${grand} | Flow sayısı: ${meta.flowCount} | Statüler: ${wantStatuses.join(",")}`,
+      ];
+      if (quietest && busiest) {
+        lines.push(`En sakin saat: ${String(quietest[0]).padStart(2, "0")}:00 (${quietest[1]}) | En yoğun: ${String(busiest[0]).padStart(2, "0")}:00 (${busiest[1]})`);
+      }
+      if (truncated) lines.push("UYARI: Güvenlik limiti (2.000.000 kayıt) aşıldı; rapor kısmi. Daha dar aralık seçin.");
+      return lines.join("\n");
     }
 
     case "mip_download_payload": {
