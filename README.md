@@ -2,6 +2,16 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.9 — Correct condition/edge wiring + pre-import validation
+
+Complex flows built through the MCP used to fail at deploy — especially anything with **two or more `processCondition` nodes**, error subflows, or multiple branches. Root cause: the embedded flow schema modelled edges and conditions incorrectly, so the AI emitted flows MIP could not deploy. This release rebuilds the schema knowledge from **55 live customer flows** (Kervan Prod) and adds a validator that catches deploy-breakers *before* import.
+
+- **Edge schema fixed** — every real MIP edge carries `type:"buttonedge"`; the old `style` object (strokeWidth/zIndex) does **not** exist in real flows and is no longer suggested. Normal edges carry `sourceHandle:"normal-source"`; condition edges carry `conditionId:"<src>--<tgt>"` + `label`.
+- **`processCondition` rebuilt** — condition branch edges are **not** auto-created; each `conditionsRows[].edgeId` must be matched **exactly** by an edge whose `conditionId` equals it. Documented with real 4-branch and two-condition worked examples. String literals in expressions must be single-quoted (`== 'OK'`, not `== OK`).
+- **Error subflow documented** — container is `type:"error"`; `processStartError`/`processEndError` and inner nodes use `parentNode` + `extent:"parent"`.
+- **New `mip_get_flow_schema` sections** — `flowTemplates` (ready-to-import full node+edge templates: `linearFlow`, `conditionFlow`, `twoConditionsFlow`, `errorSubflowFragment`, `directChaining`), `expressionLanguage` (Camel Simple/XPath/JSONPath rules), and `validation` (the rule list).
+- **Pre-import validation in `mip_create_and_import_flow`** — checks condition↔edge pairing (E2/E3), duplicate default branches, orphan edges, duplicate node ids, missing `processStart`, and error-subflow parent links. On error the import is **blocked** with a fix message. Calibrated so all 55 real production flows pass with 0 errors. Pass `skipValidation:true` to bypass.
+
 ## What's new in 1.0.8 — Message-level & time-bucketed monitoring
 
 Previously the only monitoring tool, `mip_download_logs`, returned **aggregated** success/error/delivering counts per flow with no time information — so questions like "which hour of the day is quietest?" could not be answered. This release adds the message-level and chart endpoints the MIP web UI uses internally:

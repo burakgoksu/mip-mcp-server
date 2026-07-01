@@ -69,7 +69,7 @@ function extractFilename(headers, fallback) {
 // ─── MIP Flow Schema Knowledge Base ──────────────────────────────────────────
 // 310 gerçek flow analiz edilerek oluşturulmuştur. 55 node tipi, tüm alanlar.
 const MIP_FLOW_SCHEMA = {
-  description: "MIP Integration Platform — Flow, Resource ve Package şema bilgisi. 310 gerçek flow analiz edilerek oluşturulmuştur.",
+  description: "MIP Integration Platform — Flow, Resource ve Package şema bilgisi. 310+ gerçek flow (Kervan Prod dahil 55 canli musteri flow'u) analiz edilerek olusturuldu. Karmasik akislarda (birden fazla processCondition, error subflow, split/multicast) DOGRU edge/condition wiring icin flowTemplates, edgeSchema.conditionEdge ve validation bolumlerine bak.",
 
   flowStructure: {
     topLevelFields: {
@@ -100,14 +100,32 @@ const MIP_FLOW_SCHEMA = {
   },
 
   edgeSchema: {
-    fields: {
-      id: "reactflow__edge-<sourceId>-<targetId>",
-      source: "kaynak node id",
-      target: "hedef node id",
-      height: 0.0,
-      width: 0.0,
-      style: { strokeWidth: 2, height: 0, width: 0, zIndex: -1 },
-      processSteps: []
+    critical: "KRITIK — 310+ gercek flow analizi: MIP export'undaki TUM edge'ler type:'buttonedge' tasir. Eski KB'deki 'style' objesi (strokeWidth/zIndex) GERCEK FLOW'LARDA YOKTUR — edge'e style YAZMA. Iki edge sekli vardir: (1) normal edge, (2) condition edge. Ikisi de type:'buttonedge', height:0, width:0, processSteps:[] tasir; farklari asagida.",
+    normalEdge: {
+      description: "processCondition DISINDAKI her baglanti. Kaynak node'un cikisindan hedefe.",
+      fields: {
+        id: "reactflow__edge-<sourceId><sourceHandle>-<targetId>  (sourceHandle 'normal-source' ise id'ye de gomulur: 'reactflow__edge-<sourceId>normal-source-<targetId>')",
+        type: "'buttonedge' (SABIT)",
+        source: "kaynak node id",
+        target: "hedef node id",
+        sourceHandle: "'normal-source' — normal cikisli node'larda bulunur (script, setContext, SOAP, RFC, mail, start, vb.). processCondition ciKISI HARIC.",
+        height: 0, width: 0, processSteps: []
+      },
+      example: { id: "reactflow__edge-nodeAnormal-source-nodeB", type: "buttonedge", source: "nodeA", target: "nodeB", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
+    },
+    conditionEdge: {
+      description: "processCondition node'undan cikan her dal. KRITIK: bu edge'i ELLE yazmak ZORUNLU — 'otomatik olusmaz'. Her conditionsRow icin birebir bir conditionEdge olmali.",
+      fields: {
+        id: "reactflow__edge-<sourceId>-<targetId>",
+        type: "'buttonedge' (SABIT)",
+        source: "processCondition node id",
+        target: "dalin gittigi hedef node id",
+        conditionId: "'<sourceId>--<targetId>' (CIFT tire). Node'daki conditionsRows[].edgeId ile BIREBIR AYNI olmali — eslesmezse dal baglanmaz, deploy patlar.",
+        label: "conditionsRows[].conditionName ile ayni (orn 'OK','ERR','default')",
+        height: 0, width: 0, processSteps: []
+      },
+      note: "conditionEdge'de sourceHandle YAZILMAZ (conditionId onun yerini alir).",
+      example: { id: "reactflow__edge-condA-targetB", type: "buttonedge", source: "condA", target: "targetB", conditionId: "condA--targetB", label: "OK", height: 0, width: 0, processSteps: [] }
     }
   },
 
@@ -256,7 +274,34 @@ const MIP_FLOW_SCHEMA = {
     processXSLTMapping: { description: "XSLT donusumu uygular. .xsl resource'a referans verir.", connectorDataKey: "XSLTState", fields: { xsltPath: "transform.xsl", logXSLTPayload: false, nodeId: "opsiyonel" } },
     processSetContext: { description: "Payload'dan deger cikarir, exchangeProperty veya header olarak saklar. useSimpleQuery=true ise contextBody ile body'yi rebuild eder.", connectorDataKey: "SetContextState", fields: { nodeId: "", useSimpleQuery: "false=propertyRows/headerRows kullan | true=contextBody ile body'yi yeniden yaz", contextBody: "useSimpleQuery=true oldugunda body expression: uid=dollar{exchangeProperty.uid}&pwd=dollar{exchangeProperty.pwd}", propertyRows: [{ id: 0, propertyName: "propAdi", propertyType: "Constant|Expression|XPath|JSONPath|Header|Property", propertyValue: "string | ${exchangeProperty.x}=='true' | /TedarikciPaketleri/Item | $.TedarikciPaketleri.Item | messageid123 | //status" }], headerRows: [{ id: 0, headerName: "Content-Type", headerType: "Constant|Expression|XPath|JSONPath|Header|Property", headerValue: "string | ${exchangeProperty.x}=='true' | /TedarikciPaketleri/Item | $.TedarikciPaketleri.Item | messsageId123 | //status" }] } },
     processConverter: { description: "Veri formati donusumu. J2X=JSON-to-XML, X2J=XML-to-JSON, diger tipler de var.", connectorDataKey: "ConverterState", fields: { convertType: "J2X|X2J|CSV|JSON|XML|Avro|Parquet", xmlRootName: "J2X icin kok eleman adi (ornek: DenizbankResponse)", xmlNamespace: "opsiyonel namespace (ornek: http://mdpgroup.com/EHO veya a:http://...)", xmlElementForCSV: "CSV donusumunde XML eleman adi", jsonElementForCSV: "CSV donusumunde JSON eleman adi", csvSeparator: "CSV ayirici (varsayilan virgul)", csvHeaders: "CSV sutun basliklari", toXmlElement: "XML ciktida wrap eleman", toJsonElement: "JSON ciktida wrap eleman", isFieldNameAsHeader: false, isDisabledXMLRootElement: "X2J icin true yapilir (kok eleman XML'de zaten var)", isCsvHeaderIncludedAsFieldName: false, isEmptyStringNull: false, jsonElements: [] } },
-    processCondition: { description: "Kosullu dallanma. Her conditionsRow bir cikis dalini tanimlar. Her dal icin hedef node edge ile baglanmali.", connectorDataKey: "ConditionState", fields: { conditionsRows: [{ edgeId: "kaynakNodeId--hedefNodeId", conditionName: "dal-adi", conditionType: "Expression|XPath|JSONPath", conditionValue: "${exchangeProperty.status} == OK veya XPath ifadesi", isDefaultCondition: false }], nodeId: "opsiyonel" } },
+    processCondition: {
+      description: "Kosullu dallanma (Camel Content-Based Router). Her conditionsRow bir cikis dalini tanimlar VE her dal icin edgeSchema.conditionEdge tipinde bir edge ELLE yazilmali. connectorData sadece ConditionState.conditionsRows icerir.",
+      connectorDataKey: "ConditionState",
+      rules: [
+        "ZORUNLU DEFAULT: Her processCondition'da TAM BIR satir isDefaultCondition:true olmali. Default satirda conditionType:'' ve conditionValue:'' (BOS). Default yoksa eslesmeyen mesaj kaybolur ve flow deploy/calisma hatasi verir.",
+        "EDGE ESLESMESI: conditionsRows[].edgeId, o dala karsilik gelen conditionEdge'in conditionId'si ile BIREBIR ayni olmali. Format: '<conditionNodeId>--<hedefNodeId>' (cift tire).",
+        "HER SATIR = HER EDGE: N conditionsRow varsa N adet conditionEdge olmali. Eksik/fazla edge deploy'u bozar.",
+        "EXPRESSION QUOTING: conditionType:'Expression' iken string sabitler TEK TIRNAK icinde: \"${exchangeProperty.rootName} == 'OK'\". Tirnaksiz yazim (== OK) Camel Simple'da patlar. Sayisal karsilastirma tirnaksiz: \"${exchangeProperty.count} > 0\".",
+        "SIRALAMA: MIP dallari yukaridan asagi degerlendirir; ilk eslesen dala gider. Default satir en sona konur (gercek flow'larda hem basta hem sonda gorulur ama sona koymak en guvenlisi)."
+      ],
+      fields: { conditionsRows: [{ edgeId: "<conditionNodeId>--<hedefNodeId>", conditionName: "dal-adi (edge.label ile ayni)", conditionType: "Expression|XPath|JSONPath ('' = default satir)", conditionValue: "${exchangeProperty.status} == 'OK' | XPath | '' (default satir)", isDefaultCondition: false }], nodeId: "opsiyonel" },
+      realExample: {
+        desc: "GERCEK 4-dalli condition (F_KERVANGIDA_UK_STOCK_ADJS): rootName property'sine gore ERR/FATAL/OK/default. Node + 4 edge birlikte.",
+        conditionNode: { id: "condA", type: "special", data: { objectType: "processCondition", label: "Route", connectorData: { ConditionState: { conditionsRows: [
+          { edgeId: "condA--nodeErr",  conditionName: "ERR",   conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'ERR'",   isDefaultCondition: false },
+          { edgeId: "condA--nodeFatal",conditionName: "FATAL", conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'FATAL'", isDefaultCondition: false },
+          { edgeId: "condA--nodeOk",   conditionName: "OK",    conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'",    isDefaultCondition: false },
+          { edgeId: "condA--nodeNone", conditionName: "default",conditionType: "",           conditionValue: "",                                     isDefaultCondition: true }
+        ] } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
+        edges: [
+          { id: "reactflow__edge-condA-nodeErr",  type: "buttonedge", source: "condA", target: "nodeErr",  conditionId: "condA--nodeErr",  label: "ERR",     height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condA-nodeFatal",type: "buttonedge", source: "condA", target: "nodeFatal",conditionId: "condA--nodeFatal",label: "FATAL",   height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condA-nodeOk",   type: "buttonedge", source: "condA", target: "nodeOk",   conditionId: "condA--nodeOk",   label: "OK",      height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condA-nodeNone", type: "buttonedge", source: "condA", target: "nodeNone", conditionId: "condA--nodeNone", label: "default", height: 0, width: 0, processSteps: [] }
+        ]
+      },
+      twoConditionNote: "IKI AYRI condition node ard arda kullanilabilir (gercek flow'larda yaygin: once 'Route' sonra 'SAP gate'). Her biri BAGIMSIZ bir node + kendi edge setine sahip. Ikinci condition'in girisine, birinci condition'in bir dalindan normalEdge ile gelinir. Hata belirtisi 'iki condition kullanamadim' -> genellikle ikinci condition'in edge conditionId eslesmesi veya default dali eksikti."
+    },
     processSplit: { description: "Mesaji parcalara boler, her parca akista devam eder.", connectorDataKey: "SplitState", fields: { splitType: "xPath|token|linefeed|regex", xpathExpression: "//items/item", isParallelProcessing: false, isKeepRootElement: false, isStopOnException: false, size: 1 } },
     processSplitter: { description: "processSplit alternatifi.", connectorDataKey: null, fields: {} },
     processFilter: { description: "Kosul saglanmayan mesaji durdurur.", connectorDataKey: "FilterState", fields: { pathTypes: "jsonPath|xPath", jsonpathExpression: "$.field", xpathExpression: "//element" } },
@@ -268,9 +313,24 @@ const MIP_FLOW_SCHEMA = {
     processFTP: { description: "FTP sunucusuna dosya gonderir.", connectorDataKey: "FTPState", fields: { host: "ftp.example.com", port: "21", userName: "user", password: "pass", filePath: "/remote/path", fileName: "output.txt", fileEncoding: "UTF-8", addMessageID: false, addTimeStamp: false, useTempMode: false, tempFileScheme: "UTF-8" } },
     processFile: { description: "Yerel dosya sistemi okuma/yazma.", connectorDataKey: "FileState", fields: { filePath: "C:/output", fileName: "output.xml", addTimeStamp: false, addMessageID: false, useTempMode: false, tempFileScheme: ".tmp", fileEncoding: "UTF-8" } },
     processWebdav: { description: "WebDAV sunucusuna dosya yukler.", connectorDataKey: "WebdavState", fields: { host: "https://webdav.example.com", port: 443, credentialName: "credential-ref", directory: "/integration/outgoing", fileName: "output.txt", isAutoCreate: false, isAddMessageId: false, isAddTimestamp: false } },
-    processErrorSubflow: { description: "Flow'a hata yonetimi ekler. processStartError ve processEndError ile birlikte kullanilir.", connectorDataKey: null, fields: {} },
-    processStartError: { description: "Hata akisinin baslangici.", connectorDataKey: null, fields: {} },
-    processEndError: { description: "Hata akisinin sonu.", connectorDataKey: null, fields: {} },
+    processErrorSubflow: {
+      description: "Flow'a hata yonetimi (Camel onException/doTry benzeri) ekler. processStartError + processEndError ile birlikte UC'lu bir grup olusturur. connectorData YOK.",
+      connectorDataKey: null,
+      structure: [
+        "CONTAINER: processErrorSubflow node'u type:'error' (dikkat: digerleri gibi 'special' DEGIL). Kendi position'u var, connectorData yok.",
+        "COCUKLAR: processStartError ve processEndError node'lari container'in COCUGUDUR — her ikisinde parentNode:'<container id>' ve extent:'parent' bulunur, position container'a GORECELIdir.",
+        "ID KONVANSIYONU (gercek flow'larda): StartError id = <containerId>+'0', EndError id = <containerId>+'1'. Zorunlu degil ama MIP UI boyle uretir.",
+        "AKIS: processStartError -> (hata isleyen node'lar: script/mail/setContext...) -> processEndError. Bu ic node'lar da parentNode:'<containerId>', extent:'parent' tasir. Baglantilar normalEdge (buttonedge + sourceHandle:'normal-source').",
+        "Ana flow ile edge ile BAGLANMAZ — MIP hata olunca otomatik bu subflow'a yonlendirir."
+      ],
+      realExample: {
+        container: { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Handling", connectorData: null }, position: { x: 1400, y: 400 }, height: 200, width: 1300, processSteps: [] },
+        startError: { id: "err10", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processStartError", label: "Start Error" }, position: { x: 20, y: 40 }, height: 40, width: 160, processSteps: [] },
+        endError: { id: "err11", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processEndError", label: "End Error" }, position: { x: 1230, y: 42 }, height: 40, width: 160, processSteps: [] }
+      }
+    },
+    processStartError: { description: "Hata akisinin baslangici. type:'special', parentNode:'<processErrorSubflow container id>', extent:'parent'. connectorData yok. Bkz. processErrorSubflow.structure.", connectorDataKey: null, fields: {} },
+    processEndError: { description: "Hata akisinin sonu. type:'special', parentNode:'<processErrorSubflow container id>', extent:'parent'. connectorData yok.", connectorDataKey: null, fields: {} },
     processDelayer: { description: "Akisi ms cinsinden durdurur.", connectorDataKey: "DelayerState", fields: { delayer: 3000 } },
     processDelay: { description: "Akisi geciktirir (processDelayer alternatifi).", connectorDataKey: null, fields: {} },
     processLoop: { description: "Belirtilen sayida dongu calistirir.", connectorDataKey: "LoopState", fields: { loopCount: 3 } },
@@ -302,15 +362,134 @@ const MIP_FLOW_SCHEMA = {
     processSalesforceRestQuery: { description: "Salesforce SOQL ile veri sorgular.", connectorDataKey: "SalesforceRestQueryState", fields: { salesforceClientCredential: "client-credential", salesforceUserCredential: "user-credential", processType: "SOQL Query", query: "SELECT Id, Name FROM Account WHERE Industry = 'Technology'", apiVersion: "56.0", includeDeletedRecords: false } },
     processOFTP2: { description: "OFTP2 protokolu ile dosya transferi. Otomotiv EDI'da yaygin.", connectorDataKey: "OFTP2State", fields: { oftp2ConnectionName: 0, host: "oftp2.partner.com", port: 6619, encoding: "ISO-8859-1|UTF-8", fileName: "dosya-adi", fileFormat: "Unstructured|Fixed length|Variable", fileDescription: "opsiyonel", sfid: "O0013000FIRMAADIKOD", isCompressed: false, isEncrypted: false, isSigned: false, signAlgorithm: "MD5|SHA1 (opsiyonel)" } },
     processAS2: { description: "AS2 protokolu ile B2B EDI dosya transferi. Imzalama ve sifreleme destekler.", connectorDataKey: "AS2State", fields: { as2From: "MY_COMPANY_AS2_ID", as2To: "PARTNER_AS2_ID", uri: "as2/receive", hostname: "as2.partner.com", port: 443, ediMessageType: "application/edifact|application/x-edi-x12", messageStructure: "PLAIN|CMS", subject: "mesaj konusu", sendMdn: true, signMdn: true, encryptingAlgorithm: "AES128_CBC|AES256_CBC|3DES", signingAlgorithm: "SHA256WITHRSA|SHA1WITHRSA", isCharsetConversionEnabled: false, clientPrivateKeyId: "key-id", clientPrivateKeyName: "key-adi", clientCertificateId: "opsiyonel", clientCertificateName: "opsiyonel", serverCertificateId: "opsiyonel", serverCertificateName: "opsiyonel", mdnMessageTemplate: "opsiyonel" } },
-    conditionEdge: { description: "processCondition cikisindaki kosullu edge. Node degil, edge tipidir, otomatik olusur.", connectorDataKey: null }
+    conditionEdge: { description: "processCondition cikisindaki kosullu edge. Node DEGIL, edge tipidir ve ELLE YAZILMALI (otomatik olusmaz). Yapisi icin bkz. edgeSchema.conditionEdge. Her conditionsRow icin bir tane, conditionId=edgeId eslesmeli, ayrica bir default dali edge'i de bulunmali.", connectorDataKey: null }
   },
 
+
+  expressionLanguage: {
+    description: "MIP node'lari Apache Camel altyapisi kullanir. Alanlarda gecen ifadeler Camel Simple / XPath / JSONPath dilindedir.",
+    simple: {
+      property:  "${exchangeProperty.ad}  — processSetContext ile set edilen property'yi okur",
+      header:    "${header.HeaderAdi}  — mesaj header'i",
+      body:      "${body}  — mesaj govdesi",
+      stringLiteral: "String sabit karsilastirmasi TEK TIRNAK ister: ${exchangeProperty.route} == 'OK'  (== OK YANLIS)",
+      numeric:   "Sayisal karsilastirma tirnaksiz: ${exchangeProperty.count} > 0",
+      combine:   "Mantiksal: ${exchangeProperty.a} == 'X' && ${header.b} == 'Y'",
+      usedIn:    "processCondition.conditionValue (conditionType:'Expression'), processFilter, processSetContext (propertyType:'Expression'), processMail alanlari, processDirect, attachmentExpression"
+    },
+    xpath:   "conditionType/propertyType:'XPath' -> XML body uzerinde: /Root/Item/Status  veya  //status  veya  local-name(/*) (kok eleman adi).",
+    jsonPath:"conditionType/propertyType:'JSONPath' -> JSON body uzerinde: $.field.subfield  veya  $.items[0].id",
+    commonPattern: "TIPIK AKIS: processScript veya processSetContext ile body'den bir deger cikarilip exchangeProperty'ye yazilir (orn 'route'), sonra processCondition ${exchangeProperty.route}=='...' ile dallanir. Gercek flow'larda en yaygin desen budur — condition dogrudan body parse etmez, once property'ye alinir."
+  },
+
+  flowTemplates: {
+    description: "Gercek Kervan Prod flow'larindan cikarilmis, dogrudan mip_create_and_import_flow'a verilebilecek TAM (node+edge) canonical sablonlar. Node id'leri ornek — kendi benzersiz id'lerinle degistir ama edge/conditionId eslesmelerini KORU.",
+
+    linearFlow: {
+      desc: "En basit akis: Start -> Script -> End. Normal edge yapisini gosterir.",
+      flowData: [
+        { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "REST", restAddress: "/ornek", restMethod: "POST", restAuthenticationAllowDefaultBasicCredentials: true, isSyncEndpoint: true } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "script1", type: "special", data: { objectType: "processScript", label: "Transform", connectorData: { ScriptState: { scriptPath: "transform.groovy", logScriptPayload: true } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "end1", type: "special", data: { objectType: "processEnd", label: "End", connectorData: null }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "reactflow__edge-start1normal-source-script1", type: "buttonedge", source: "start1", target: "script1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-script1normal-source-end1", type: "buttonedge", source: "script1", target: "end1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
+      ]
+    },
+
+    conditionFlow: {
+      desc: "TEK condition, 3 dal (OK / ERR / default). Once SetContext ile 'route' property'si set edilir, sonra condition dallanir. KARMASIK FLOW'DA EN KRITIK SABLON — edgeId<->conditionId eslesmesine ve default dala dikkat.",
+      flowData: [
+        { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "REST", restAddress: "/route", restMethod: "POST", restAuthenticationAllowDefaultBasicCredentials: true, isSyncEndpoint: true } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "set1", type: "special", data: { objectType: "processSetContext", label: "Set route", connectorData: { SetContextState: { useSimpleQuery: false, contextBody: "", headerRows: [], propertyRows: [{ id: 0, propertyName: "route", propertyType: "XPath", propertyValue: "/Result/Status" }] } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Route", connectorData: { ConditionState: { conditionsRows: [
+          { edgeId: "cond1--okEnd",  conditionName: "OK",      conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'",  isDefaultCondition: false },
+          { edgeId: "cond1--errEnd", conditionName: "ERR",     conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'ERR'", isDefaultCondition: false },
+          { edgeId: "cond1--defEnd", conditionName: "default", conditionType: "",           conditionValue: "",                                   isDefaultCondition: true }
+        ] } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "okEnd",  type: "special", data: { objectType: "processEnd", label: "OK End",  connectorData: null }, position: { x: 900, y: 0 },   height: 40, width: 160, processSteps: [] },
+        { id: "errEnd", type: "special", data: { objectType: "processEnd", label: "ERR End", connectorData: null }, position: { x: 900, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "defEnd", type: "special", data: { objectType: "processEnd", label: "Def End", connectorData: null }, position: { x: 900, y: 300 }, height: 40, width: 160, processSteps: [] },
+        { id: "reactflow__edge-start1normal-source-set1", type: "buttonedge", source: "start1", target: "set1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-set1normal-source-cond1", type: "buttonedge", source: "set1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1-okEnd",  type: "buttonedge", source: "cond1", target: "okEnd",  conditionId: "cond1--okEnd",  label: "OK",      height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1-errEnd", type: "buttonedge", source: "cond1", target: "errEnd", conditionId: "cond1--errEnd", label: "ERR",     height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1-defEnd", type: "buttonedge", source: "cond1", target: "defEnd", conditionId: "cond1--defEnd", label: "default", height: 0, width: 0, processSteps: [] }
+      ]
+    },
+
+    twoConditionsFlow: {
+      desc: "IKI ard arda condition (kullanicinin takildigi senaryo). cond1 (OK/default) -> OK dalindan cond2'ye normalEdge; cond2 (SAP/default). Her condition BAGIMSIZ node + kendi edge seti. Ikinci condition'in default'u da ZORUNLU.",
+      flowData: [
+        { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "Timer", timerCron: "0 0/5 * 1/1 * ? *", isSyncEndpoint: false } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Route1", connectorData: { ConditionState: { conditionsRows: [
+          { edgeId: "cond1--proc1", conditionName: "OK",      conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'", isDefaultCondition: false },
+          { edgeId: "cond1--end1",  conditionName: "default", conditionType: "",           conditionValue: "",                                  isDefaultCondition: true }
+        ] } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "proc1", type: "special", data: { objectType: "processScript", label: "Process", connectorData: { ScriptState: { scriptPath: "process.groovy", logScriptPayload: true } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "cond2", type: "special", data: { objectType: "processCondition", label: "SAP gate", connectorData: { ConditionState: { conditionsRows: [
+          { edgeId: "cond2--sapErr", conditionName: "sapError", conditionType: "Expression", conditionValue: "${exchangeProperty.sapMail} == '1'", isDefaultCondition: false },
+          { edgeId: "cond2--okEnd",  conditionName: "default",  conditionType: "",           conditionValue: "",                                    isDefaultCondition: true }
+        ] } } }, position: { x: 900, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "sapErr", type: "special", data: { objectType: "processMail", label: "Notify", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "SAP error", mailBody: "Hata: ${exchangeProperty.err}", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 1200, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "okEnd", type: "special", data: { objectType: "processEnd", label: "OK End",  connectorData: null }, position: { x: 1200, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "end1",  type: "special", data: { objectType: "processEnd", label: "Skip End", connectorData: null }, position: { x: 600, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "reactflow__edge-start1normal-source-cond1", type: "buttonedge", source: "start1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1-proc1", type: "buttonedge", source: "cond1", target: "proc1", conditionId: "cond1--proc1", label: "OK",      height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1-end1",  type: "buttonedge", source: "cond1", target: "end1",  conditionId: "cond1--end1",  label: "default", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-proc1normal-source-cond2", type: "buttonedge", source: "proc1", target: "cond2", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond2-sapErr", type: "buttonedge", source: "cond2", target: "sapErr", conditionId: "cond2--sapErr", label: "sapError", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond2-okEnd",  type: "buttonedge", source: "cond2", target: "okEnd",  conditionId: "cond2--okEnd",  label: "default",  height: 0, width: 0, processSteps: [] }
+      ]
+    },
+
+    errorSubflowFragment: {
+      desc: "Hata yonetimi grubu. Ana flow node'larina EK olarak eklenir; ana flow ile edge ile baglanmaz. Container type:'error', cocuklar parentNode+extent:'parent'.",
+      flowData: [
+        { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Handling", connectorData: null }, position: { x: 0, y: 400 }, height: 220, width: 700, processSteps: [] },
+        { id: "err10", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processStartError", label: "Start Error", connectorData: null }, position: { x: 20, y: 40 }, height: 40, width: 160, processSteps: [] },
+        { id: "errMail", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processMail", label: "Alert", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "Flow error", mailBody: "Hata olustu", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 250, y: 40 }, height: 40, width: 160, processSteps: [] },
+        { id: "err11", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processEndError", label: "End Error", connectorData: null }, position: { x: 500, y: 40 }, height: 40, width: 160, processSteps: [] },
+        { id: "reactflow__edge-err10normal-source-errMail", type: "buttonedge", source: "err10", target: "errMail", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-errMailnormal-source-err11", type: "buttonedge", source: "errMail", target: "err11", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
+      ]
+    },
+
+    directChaining: {
+      desc: "Bir flow'u baska flow'a baglama (gercek Kervan pattern, 7 kullanim). processDirect'te directName + hedef flowId birlikte verilir. Hedef flow'da connectorType:'Direct' Start olmali.",
+      note: "Gonderen: processDirect { DirectState: { directName: '/SalesOrderIdoc', flowId: 'F_HEDEF_FLOW_ID', isAsync: false } }. Alan: processStart { StartState: { connectorType: 'Direct', directName: '/SalesOrderIdoc' } }. directName iki tarafta AYNI olmali."
+    }
+  },
+
+  validation: {
+    description: "mip_create_and_import_flow bu kurallari import ONCESI otomatik kontrol eder ve ihlalde HATA firlatir (deploy'da patlamadan once yakalar). Flow uretirken bu kurallara uy.",
+    errors: [
+      "E1 processCondition node'unda EN FAZLA 1 adet isDefaultCondition:true satiri olabilir (>1 => hata). Default YOKLUGU hata degil, W5 uyarisidir (gercek prod flow'larda default'suz condition var).",
+      "E2 Her conditionsRows[].edgeId icin, o condition node'undan cikan conditionId'si AYNI olan bir edge bulunmali (eksik dal edge'i). ASIL DEPLOY-BREAKER budur.",
+      "E3 conditionId'si olan her edge, kaynak condition node'unun conditionsRows'unda edgeId olarak gecmeli (yetim condition edge).",
+      "E4 Tum edge source/target degerleri var olan bir node id'sine isaret etmeli (yetim edge).",
+      "E5 Node id'leri benzersiz olmali.",
+      "E6 Flow'da tam olarak >=1 processStart olmali.",
+      "E7 processErrorSubflow varsa, ic node'lari (StartError/EndError) parentNode ile ona bagli olmali."
+    ],
+    warnings: [
+      "W1 conditionType:'Expression' ve conditionValue string sabit iceriyorsa tek tirnak onerilir (== OK -> == 'OK').",
+      "W2 Edge'lerde type:'buttonedge' yoksa uyari (MIP tolere edebilir ama canonical degil).",
+      "W3 processCondition harici node'lardan cikan normal edge'de sourceHandle:'normal-source' onerilir.",
+      "W4 Ayni conditionName bir condition node icinde birden fazla kez kullanilmis (belirsiz dal).",
+      "W5 processCondition default dal icermiyor — eslesmeyen mesaj sessizce duser. Bilincli degilse default ekle."
+    ]
+  },
 
   importantNotes: [
     "id, createdDate, createdBy, lastModifiedDate, lastModifiedBy alanlarını yeni flow'larda EKLEME — MIP bunları otomatik atar.",
     "flowLocked: 0 olmalı (1 = kilitli flow, düzenlenemez).",
     "position değerleri UI'da düzgün görünüm için 300px aralıklı set edilmeli (x: 0, 300, 600, 900...).",
     "Paralel branch'lerde y koordinatı değiştirilmeli (üst: y:0, alt: y:150).",
+    "KRITIK — EDGE TIPI: TUM edge'ler type:'buttonedge' tasir. Eski 'style' objesini (strokeWidth/zIndex) YAZMA — gercek flow'larda yok. Normal edge'lerde sourceHandle:'normal-source' bulunur; condition edge'lerinde bulunmaz.",
+    "KRITIK — CONDITION WIRING: processCondition dallari OTOMATIK olusmaz. Her conditionsRows satiri icin ELLE bir edge yaz: edge.conditionId = row.edgeId ('<condNodeId>--<hedefId>' cift tire) BIREBIR eslesmeli, edge.label = row.conditionName. Ayrica TAM 1 default satir (isDefaultCondition:true, conditionType:'', conditionValue:'') + onun edge'i ZORUNLU. Eksikse deploy patlar. Tam ornek: flowTemplates.conditionFlow ve twoConditionsFlow.",
+    "KRITIK — CONDITION EXPRESSION: conditionValue string sabit karsilastirmasi tek tirnak ister: \"${exchangeProperty.route} == 'OK'\". Tirnaksiz (== OK) Camel'da patlar. Condition genelde body'yi degil, onceden processSetContext/processScript ile set edilmis exchangeProperty'yi okur.",
+    "KRITIK — IKI CONDITION: Ard arda iki processCondition tamamen desteklenir; her biri BAGIMSIZ node + kendi edge seti + kendi default dali. Ikincinin girisine birincinin bir dalindan normalEdge ile gelinir. Bkz. flowTemplates.twoConditionsFlow.",
+    "KRITIK — ERROR SUBFLOW: processErrorSubflow container type:'error' (special DEGIL); processStartError/processEndError ve ic node'lar parentNode:'<containerId>' + extent:'parent' tasir. Ana flow ile edge ile baglanmaz. Bkz. flowTemplates.errorSubflowFragment.",
     "Credential/resource referansları (basicAuthResourceName, scriptPath, vb.) MIP'te önceden tanımlı olmalıdır.",
     "Groovy script yazarken MUTLAKA 'def Exchange executeMessage(Exchange message)' imzasini kullan. message.in.body degil, message.getIn().getBody(String.class) kullan. Her zaman message'i return et.",
     "Groovy'de body okuma: message.getIn().getBody(String.class) | body yazma: message.getIn().setBody(...) | property: message.setProperty/getProperty | header: message.getIn().setHeader/getHeader",
@@ -325,6 +504,128 @@ const MIP_FLOW_SCHEMA = {
     "KRİTİK — SOAP Start iceren flow olusturma sirasi: 1) WSDL'i hazirla — yeni WSDL icin mip_generate_wsdl(uploadAfter:true, flowId), var olan dosya icin mip_upload_wsdl(filePath, flowId). 2) Binding ve operation isimlerini WSDL'den oku — mip_generate_wsdl ciktisi bindingMetadata olarak verir; hand-crafted/dis WSDL'lerde dosyayi parse edip <wsdl:binding name=...> ve <wsdl:operation name=...> literal degerlerini al (asla 'serviceName + Binding' tahmin etme; gercek ornekler: 'CalculatorSoap', 'IDOCBinding', 'EASoapBinding'). 3) SOAP Start StartState bloguna yaz: connectorType:'SOAP', soapAddress:'/<endpoint_path>' (MIP path, WSDL location DEGIL), soapWSDLResource:'<wsdl_dosya_adi>', soapWSDLBinding:'<wsdl_icindeki_binding_adi>', soapWSDLOperation:'<wsdl_icindeki_operation_adi>'. 4) mip_create_and_import_flow cagir. Auth icin 7/7 gercek ornek soapAuthenticationAllowDefaultBasicCredentials:true kullaniyor."
   ]
 };
+
+// ─── Flow Validation ──────────────────────────────────────────────────────────
+// mip_create_and_import_flow oncesi, deploy'da patlayan yaygin hatalari yakalar.
+// Ozellikle karmasik akislarda (birden fazla processCondition, error subflow)
+// edge/condition wiring hatalarini import'tan ONCE tespit eder.
+// Donen: { errors: string[], warnings: string[] }
+function validateFlow(flowData) {
+  const errors = [];
+  const warnings = [];
+
+  // flowData string olabilir — parse et
+  let data = flowData;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); } catch (e) {
+      return { errors: [`flowData JSON parse edilemedi: ${e.message}`], warnings: [] };
+    }
+  }
+  if (!Array.isArray(data)) {
+    return { errors: ["flowData bir array olmali (node + edge listesi)."], warnings: [] };
+  }
+
+  const nodes = data.filter(x => x && x.data && x.data.objectType);
+  const edges = data.filter(x => x && x.source && x.target && !(x.data && x.data.objectType));
+  const nodeIds = new Set(nodes.map(n => n.id));
+
+  // E5 — benzersiz node id
+  const seen = new Set();
+  for (const n of nodes) {
+    if (seen.has(n.id)) errors.push(`E5 Tekrar eden node id: '${n.id}'.`);
+    seen.add(n.id);
+  }
+
+  // E6 — en az bir processStart
+  const startCount = nodes.filter(n => n.data.objectType === "processStart").length;
+  if (startCount < 1) errors.push("E6 Flow'da en az bir processStart node'u olmali.");
+
+  // E4 — yetim edge (source/target var olmayan node'a isaret ediyor)
+  for (const e of edges) {
+    if (!nodeIds.has(e.source)) errors.push(`E4 Edge '${e.id || e.source + "->" + e.target}' var olmayan source node'a isaret ediyor: '${e.source}'.`);
+    if (!nodeIds.has(e.target)) errors.push(`E4 Edge '${e.id || e.source + "->" + e.target}' var olmayan target node'a isaret ediyor: '${e.target}'.`);
+    // W2 — buttonedge onerisi
+    if (e.type !== "buttonedge") warnings.push(`W2 Edge '${e.id || e.source + "->" + e.target}' type:'buttonedge' tasimiyor (canonical degil).`);
+  }
+
+  // Condition node'lari
+  const condNodes = nodes.filter(n => n.data.objectType === "processCondition");
+  const condEdgesBySource = {};
+  for (const e of edges.filter(e => e.conditionId)) {
+    (condEdgesBySource[e.source] = condEdgesBySource[e.source] || []).push(e);
+  }
+
+  for (const c of condNodes) {
+    const rows = (((c.data.connectorData || {}).ConditionState || {}).conditionsRows) || [];
+    if (rows.length === 0) { errors.push(`E1 processCondition '${c.id}' bos — hic conditionsRow yok.`); continue; }
+
+    // E1 — en fazla 1 default (ERROR). Default YOKLUGU deploy'u bozmaz (gercek
+    // prod flow'larda default'suz condition'lar var — eslesmeyen mesaj duser) →
+    // sadece W5 uyarisi.
+    const defaults = rows.filter(r => r.isDefaultCondition === true);
+    if (defaults.length === 0) warnings.push(`W5 processCondition '${c.id}' default dal (isDefaultCondition:true) icermiyor — hicbir kosula uymayan mesaj sessizce duser. Bilincli degilse bir default dal ekle.`);
+    if (defaults.length > 1)  errors.push(`E1 processCondition '${c.id}' ${defaults.length} default dal iceriyor — sadece 1 olmali.`);
+
+    // W4 — tekrar eden conditionName
+    const names = {};
+    for (const r of rows) names[r.conditionName] = (names[r.conditionName] || 0) + 1;
+    Object.entries(names).filter(([, v]) => v > 1).forEach(([k]) => warnings.push(`W4 processCondition '${c.id}' icinde '${k}' conditionName'i birden fazla kez var.`));
+
+    const outEdges = condEdgesBySource[c.id] || [];
+    const rowEdgeIds = new Set(rows.map(r => r.edgeId));
+    const edgeCondIds = new Set(outEdges.map(e => e.conditionId));
+
+    // E2 — her row icin eslesen edge
+    for (const r of rows) {
+      if (!edgeCondIds.has(r.edgeId)) {
+        errors.push(`E2 processCondition '${c.id}' dali '${r.conditionName}' (edgeId '${r.edgeId}') icin eslesen conditionEdge yok. Bir edge ekle: { type:'buttonedge', source:'${c.id}', target:'<hedef>', conditionId:'${r.edgeId}', label:'${r.conditionName}' }.`);
+      }
+      // W1 — expression quoting
+      if (r.conditionType === "Expression" && r.conditionValue && /==\s*[A-Za-z_][A-Za-z0-9_]*\s*$/.test(r.conditionValue)) {
+        warnings.push(`W1 processCondition '${c.id}' dali '${r.conditionName}': string sabit tek tirnak icinde olmali (orn: == '${r.conditionValue.split("==").pop().trim()}').`);
+      }
+    }
+    // E3 — yetim condition edge
+    for (const e of outEdges) {
+      if (!rowEdgeIds.has(e.conditionId)) {
+        errors.push(`E3 processCondition '${c.id}' cikisinda conditionId '${e.conditionId}' olan edge var ama conditionsRows'da boyle bir edgeId yok (yetim dal edge'i).`);
+      }
+      // W3 icin: condition edge'de sourceHandle olmamali (bilgi amacli, sessiz)
+    }
+  }
+
+  // E3 (ek) — condition edge kaynagi processCondition olmayan node ise
+  for (const e of edges.filter(e => e.conditionId)) {
+    const src = nodes.find(n => n.id === e.source);
+    if (src && src.data.objectType !== "processCondition") {
+      errors.push(`E3 conditionId'li edge '${e.id}' kaynagi processCondition degil ('${src.data.objectType}'). Sadece processCondition cikislari conditionId tasir.`);
+    }
+  }
+
+  // W3 — normal edge'de sourceHandle onerisi (processCondition disi node'lardan)
+  for (const e of edges.filter(e => !e.conditionId)) {
+    const src = nodes.find(n => n.id === e.source);
+    if (src && src.data.objectType !== "processCondition" && !e.sourceHandle) {
+      warnings.push(`W3 Edge '${e.id || e.source + "->" + e.target}' normal cikis ama sourceHandle:'normal-source' yok.`);
+    }
+  }
+
+  // E7 — error subflow cocuklari parentNode ile bagli mi
+  const errContainers = nodes.filter(n => n.data.objectType === "processErrorSubflow");
+  for (const cont of errContainers) {
+    const children = nodes.filter(n => n.parentNode === cont.id);
+    const hasStart = children.some(n => n.data.objectType === "processStartError");
+    const hasEnd = children.some(n => n.data.objectType === "processEndError");
+    if (!hasStart) errors.push(`E7 processErrorSubflow '${cont.id}' icin parentNode ile bagli processStartError yok.`);
+    if (!hasEnd) errors.push(`E7 processErrorSubflow '${cont.id}' icin parentNode ile bagli processEndError yok.`);
+  }
+  // parentNode'u var olmayan container'a isaret eden node
+  for (const n of nodes.filter(x => x.parentNode)) {
+    if (!nodeIds.has(n.parentNode)) errors.push(`E7 Node '${n.id}' parentNode:'${n.parentNode}' var olmayan bir node'a isaret ediyor.`);
+  }
+
+  return { errors, warnings };
+}
 
 // ─── WSDL Helpers ─────────────────────────────────────────────────────────────
 // MIP, SOAP Start adapter icin yuklenen WSDL'lerde her <xs:schema> elementinde
@@ -964,13 +1265,13 @@ GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJ
   // ── Flow Schema & Builder ──
   {
     name: "mip_get_flow_schema",
-    description: "MIP flow, node, resource ve package şema bilgisini döner. Yeni flow oluşturmadan önce bu tool çağrılmalıdır. 310 gerçek flow analiz edilerek oluşturulmuş kapsamlı şema ve template kütüphanesi içerir.",
+    description: "MIP flow, node, resource ve package şema bilgisini döner. Yeni flow oluşturmadan önce bu tool çağrılmalıdır. 310+ gerçek flow (Kervan Prod dahil) analiz edilerek olusturulmus kapsamli sema ve template kutuphanesi. KARMASIK flow (birden fazla condition, error subflow, split) yapmadan once mutlaka 'flowTemplates' ve 'edgeSchema' bolumlerini oku.",
     inputSchema: {
       type: "object",
       properties: {
         section: {
           type: "string",
-          description: "Belirli bir bölüm getir: 'nodeTypes' | 'flowTemplates' | 'validation' | 'expressionLanguage' | 'all' (varsayılan: 'all')",
+          description: "Belirli bir bolum getir. Gecerli degerler: 'flowStructure' | 'nodeSchema' | 'edgeSchema' | 'nodeTypes' | 'expressionLanguage' | 'flowTemplates' | 'validation' | 'importantNotes' | 'all' (varsayilan: 'all'). Condition/edge wiring icin: 'edgeSchema' + 'flowTemplates'. Deploy hatalarini onlemek icin: 'validation'.",
           default: "all"
         }
       },
@@ -980,6 +1281,8 @@ GOOGLE:  { credentialName, credentialType:"GOOGLE_PUBSUB", googleServiceAccountJ
   {
     name: "mip_create_and_import_flow",
     description: `Verilen flow JSON tanımını doğrulayıp MIP'e import eder. flowData otomatik serialize edilir.
+
+DOGRULAMA (v1.0.9): Import ONCESI flow otomatik dogrulanir. Deploy'da patlayan hatalar yakalanir: eksik/yanlis condition dal edge'i (conditionId<->edgeId eslesmesi), eksik veya coklu default dal, yetim edge, tekrar eden node id, processStart eksikligi, error subflow parentNode baglantisi. Hata varsa import YAPILMAZ ve duzeltme mesaji doner. Dogru yapi icin once mip_get_flow_schema('flowTemplates') cagir — hazir tam ornekler (conditionFlow, twoConditionsFlow, errorSubflowFragment) verir.
 
 ÖN-KOŞUL — Flow icinde processStart node'u connectorType:"SOAP" ise:
 1) ONCE WSDL hazır olmalı. Yoksa once mip_generate_wsdl ile uret (uploadAfter:true + flowId vererek aynı çağrıda yükleyebilirsin), ya da var olan bir WSDL dosyasi icin mip_upload_wsdl kullan.
@@ -997,6 +1300,10 @@ Diger node tipleri icin kural yok — SOAP Start (Sender) ozel.`,
         flow: {
           type: "object",
           description: "Oluşturulacak flow tanımı. flowId, flowName, flowPackageId, flowData (array) alanları zorunlu."
+        },
+        skipValidation: {
+          type: "boolean",
+          description: "true verilirse import oncesi flow dogrulamasi (condition/edge/default kontrolu) atlanir. Varsayilan false — normalde ATLAMA."
         }
       },
       required: ["flow"]
@@ -1676,6 +1983,25 @@ async function handleTool(name, args) {
       if (!flowDef.flowId || !flowDef.flowName || !flowDef.flowPackageId) {
         throw new Error("flow.flowId, flow.flowName ve flow.flowPackageId zorunludur.");
       }
+
+      // Import ONCESI dogrulama — deploy'da patlayan edge/condition hatalarini yakala.
+      // args.skipValidation === true ile atlanabilir.
+      if (args.skipValidation !== true) {
+        const { errors, warnings } = validateFlow(flowDef.flowData);
+        if (errors.length > 0) {
+          throw new Error(
+            "Flow dogrulama HATASI — import edilmedi (deploy'da patlamamasi icin). " +
+            "Duzelt ve tekrar dene, ya da mip_get_flow_schema('flowTemplates') ile dogru yapiyi gor.\n" +
+            errors.map(e => "  ✗ " + e).join("\n") +
+            (warnings.length ? "\n\nUyarilar:\n" + warnings.map(w => "  ! " + w).join("\n") : "") +
+            "\n\n(Kasitli olarak atlamak icin skipValidation:true ver.)"
+          );
+        }
+        if (warnings.length > 0) {
+          console.error("[mip_create_and_import_flow] Dogrulama uyarilari:\n" + warnings.map(w => "  ! " + w).join("\n"));
+        }
+      }
+
       // flowData array ise string'e serialize et
       if (Array.isArray(flowDef.flowData)) {
         flowDef.flowData = JSON.stringify(flowDef.flowData);
