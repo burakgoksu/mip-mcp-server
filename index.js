@@ -2049,6 +2049,30 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
       required: ["id"],
     },
   },
+  {
+    name: "mip_sync_mcp_server",
+    description:
+      "MCP server'a bağlanıp sunduğu tool'ları senkronize eder (refresh-tools). Başarılıysa connectionStatus SYNCED olur ve toolsCount dolar. Yeni oluşturulan/güncellenen bir MCP server'ın tool'larını görebilmek için önce bu çağrılır.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "number", description: "Sync edilecek MCP server ID" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "mip_list_mcp_server_tools",
+    description:
+      "Bir MCP server'ın (sync sonrası) keşfedilen tool'larını döner: name, description, inputSchemaJson, outputSchemaJson. Sayfalıdır. Önce mip_sync_mcp_server ile SYNCED olmalıdır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "MCP server ID" },
+        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },
+      },
+      required: ["id"],
+    },
+  },
 
   // ─── OFTP2 Connections (Operations > Destinations > OFTP2) ─────────────────────
   // OFTP2 dosya transfer bağlantıları. Endpoint: /api/oftp-connections.
@@ -3614,6 +3638,29 @@ ${wsdlContent}`;
     case "mip_delete_mcp_server": {
       const res = await axios.delete(`${BASE_URL}/api/mcp-servers/${args.id}`, { headers });
       return `MCP server silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_sync_mcp_server": {
+      await axios.post(`${BASE_URL}/api/mcp-servers/${args.id}/refresh-tools`, null, { headers });
+      // sync sonrası güncel durumu döndür (SYNCED/FAILED + toolsCount).
+      const cur = await axios.get(`${BASE_URL}/api/mcp-servers`, {
+        headers,
+        params: { paginationPage: 0, paginationSize: 500 },
+      });
+      const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
+      const s = items.find((x) => x.id === args.id);
+      if (!s) return `Sync tetiklendi (id ${args.id}).`;
+      return `MCP server sync edildi: connectionStatus=${s.connectionStatus}, toolsCount=${s.toolsCount}${
+        s.connectionStatus === "FAILED" ? " — bağlantı başarısız (config/erişim kontrol edin)." : ""
+      }`;
+    }
+
+    case "mip_list_mcp_server_tools": {
+      const res = await axios.get(`${BASE_URL}/api/mcp-servers/${args.id}/tools`, {
+        headers,
+        params: { paginationPage: (args.page ?? 1) - 1, paginationSize: args.size ?? 25 },
+      });
+      return JSON.stringify(res.data, null, 2);
     }
 
     // ─── OFTP2 Connections (/api/oftp-connections) ──────────────────────────────

@@ -2,6 +2,15 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.22 — MCP Server sync & tool discovery
+
+Completes the MCP Servers feature. A newly created MCP server is `NOT_SYNCED` and exposes no tools until MIP connects to it:
+
+- **`mip_sync_mcp_server`** — `POST /api/mcp-servers/{id}/refresh-tools`: MIP connects to the external MCP server and enumerates its tools; reports `connectionStatus` (SYNCED/FAILED) and `toolsCount`.
+- **`mip_list_mcp_server_tools`** — `GET /api/mcp-servers/{id}/tools`: the discovered tools with name, description, and input/output JSON schemas.
+
+Verified live end-to-end: a server pointed at the public `https://mcp.deepwiki.com/sse` synced to **SYNCED** and discovered 3 tools (`ask_question`, `read_wiki_contents`, `read_wiki_structure`). Note: the target MIP host connects to **remote HTTP/SSE** MCP servers; local stdio (`command`/`npx`) servers failed to sync on it.
+
 ## Fixed in 1.0.21 — JDBC destination requires user/password for all drivers
 
 Live testing across all five drivers revealed the backend requires `userName` and `password` for **every** driver, including MongoDB (the UI's validation exempts MongoDB, but the API rejects a blank credential). `mip_create_jdbc_destination` now marks both as required and no longer special-cases MongoDB.
