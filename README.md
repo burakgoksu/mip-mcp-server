@@ -2,6 +2,17 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.16 — Global Flow Configurations (Integrations)
+
+The last Integrations tool group. Global flow configurations (shared exchange properties, backed by `/api/global-flow-configurations`) are now fully manageable — completing full MCP coverage of the Operations > Integrations menu:
+
+- **`mip_list_global_flow_configs`** — list configs (configKey, configValue, enabled, appliedGlobally), paginated, filter by key.
+- **`mip_create_global_flow_config`** — create a config; `configValue` is a scalar or JSON string (JSON is auto-parsed, mirroring the UI's "Value (scalar or JSON)" field). `enabled` = visible/active to flows, `appliedGlobally` = auto-applied to all flows (opt-out).
+- **`mip_update_global_flow_config`** — update by key; merges against the existing record. Optional `force:true` to override the in-use warning.
+- **`mip_delete_global_flow_config`** — delete by key.
+
+Create (scalar + JSON) → filter → update → delete verified end-to-end against a live MIP instance.
+
 ## What's new in 1.0.15 — Performance-Monitoring search & paging
 
 The Monitoring > Performance-Monitoring screen is served by the same endpoint as the existing `mip_get_message_completion_times` tool (`/api/monitoring/logs/message-completion-times`), so it was already covered. This release brings the tool to full parity with the screen: an optional `filter` (search over flowId/flowName/messageCount) and `page`, and dates now accept `YYYY-MM-DD HH:mm` as well as `YYYY-MM-DD`.
