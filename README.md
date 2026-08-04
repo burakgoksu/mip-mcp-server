@@ -2,6 +2,15 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.23 — Editors: run Groovy & XSLT
+
+The execute-style Editors now work through the MCP (the Groovy editor previously appeared broken):
+
+- **`mip_execute_groovy_script`** — `POST /api/groovy-script-execute`: run a Groovy script against an input body + headers + properties, returns `{output, headers, properties}`. **Key gotcha** (why it "didn't work" before): the editor's default template types the parameter as `org.apache.camel.Exchange`, but at runtime MIP passes a `com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO`, and static type-checking rejects the mismatch. The script must be `def executeMessage(com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO message) { …; return message }`. DTO API: `getBody/setBody`, `getHeaders/setHeader`, `getProperties/setProperty`.
+- **`mip_execute_xslt_transform`** — `POST /api/xslt-transform-execute` with `{inputXml, xsltCode}`: apply an XSLT stylesheet to XML, returns `{output, xsltVersion, outputMethod, status, errors}`.
+
+Both verified live (Groovy uppercases a body + sets header/property; XSLT transforms an order into a result doc). The visual JSON Designer and XSD Designer are model-tree GUIs, not exposed as tools.
+
 ## What's new in 1.0.22 — MCP Server sync & tool discovery
 
 Completes the MCP Servers feature. A newly created MCP server is `NOT_SYNCED` and exposes no tools until MIP connects to it:
