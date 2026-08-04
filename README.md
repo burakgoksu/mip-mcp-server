@@ -21,7 +21,7 @@ Final Destinations group — completing full MCP coverage of the Destinations me
 
 - **OFTP2 Connections** (`/api/oftp-connections`) — `mip_list/create/update/delete_oftp2_connection`. Own/partner SSID·SFID·password, `expectedVirtualFileName` (regex), encoding, compress/secure/sign/verify flags. Create/update **require** a `partnerCertificateId` (a certificate) and `ownKeyStoreId` (a keystore) — the payload sends `oftp2PartnerCertificateId`/`oftp2OwnKeyStoreId`. Passwords are hidden in list and preserved on update when omitted.
 
-Verified: list. Create/update were **not** live-tested — OFTP2 mandatorily needs a keystore and the target instance currently has none; the tools are built to the reverse-engineered API contract (flat fields + the two required IDs).
+Verified end-to-end (since 1.0.22): OFTP2 mandatorily needs a keystore, so a test JKS was generated and uploaded, then a connection was created (partner cert + own keystore, signed + verify) and updated (merge, values preserved). Create and update both confirmed live.
 
 ## What's new in 1.0.19 — RFC Destinations & MCP Servers (Destinations)
 
