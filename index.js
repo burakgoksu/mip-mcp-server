@@ -2426,7 +2426,16 @@ ${wsdlContent}`;
         paginationPage: (args.page ?? 1) - 1,
         paginationSize: args.size ?? 200,
       };
-      if (args.filter) params.filter = args.filter;
+      if (args.filter) {
+        // MIP, filtreyi base64 kodlu bir JSON olarak bekler: tüm alanlarda
+        // "contains" (cn) araması, dataOption "any" (OR). Düz metni bu yapıya çevir.
+        const keys = ["name", "minimumValue", "maximumValue", "currentValue", "length"];
+        const criteria = {
+          dataOption: "any",
+          searchCriteriaList: keys.map((k) => ({ filterKey: k, operation: "cn", value: args.filter })),
+        };
+        params.filter = Buffer.from(JSON.stringify(criteria)).toString("base64");
+      }
       const res = await axios.get(`${BASE_URL}/api/number-ranges`, { headers, params });
       return JSON.stringify(res.data, null, 2);
     }
