@@ -2,6 +2,17 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.10 — Counters (Integrations)
+
+First tool group of the **Integrations** operations menu. Counters (backed by MIP's `/api/number-ranges`) can now be managed end-to-end through natural language:
+
+- **`mip_list_counters`** — list counters (name, minimumValue, maximumValue, currentValue, length), paginated, with optional filter.
+- **`mip_create_counter`** — create a counter; `currentValue` defaults to `minimumValue`, `length` to 1.
+- **`mip_update_counter`** — update a counter by id; fetches the existing record and merges the given fields, so partial updates never wipe other values.
+- **`mip_delete_counter`** — delete a counter by id.
+
+Verified end-to-end (create → update → delete round-trip) against a live MIP instance.
+
 ## What's new in 1.0.9 — Correct condition/edge wiring + pre-import validation
 
 Complex flows built through the MCP used to fail at deploy — especially anything with **two or more `processCondition` nodes**, error subflows, or multiple branches. Root cause: the embedded flow schema modelled edges and conditions incorrectly, so the AI emitted flows MIP could not deploy. This release rebuilds the schema knowledge from **55 live customer flows** (Kervan Prod) and adds a validator that catches deploy-breakers *before* import.
