@@ -2632,13 +2632,16 @@ ${wsdlContent}`;
 
     case "mip_create_alert": {
       const useTemplate = args.useTemplate ?? false;
+      // MIP alertTemplate alanında literal satır sonu kabul etmez ("Cannot be blank"
+      // hatası verir); HTML boşluğa duyarsız olduğundan newline'ları boşluğa çeviririz.
+      const normTemplate = (t) => (t ?? "").replace(/\r?\n/g, " ");
       const body = {
         alertName: args.alertName,
         alertMailList: args.alertMailList,
         postingFrequency: args.postingFrequency,
         flowIds: args.flowIds,
         isTemplateEnabled: useTemplate,
-        alertTemplate: useTemplate ? (args.alertTemplate ?? "") : "",
+        alertTemplate: useTemplate ? normTemplate(args.alertTemplate) : "",
         alertBodyType: useTemplate ? (args.alertBodyType ?? "") : "",
       };
       if (useTemplate && (!args.alertTemplate || !args.alertBodyType)) {
@@ -2659,13 +2662,15 @@ ${wsdlContent}`;
       if (!existing) throw new Error(`Alert bulunamadı: id ${id}`);
       const useTemplate = args.useTemplate ?? existing.isTemplateEnabled ?? false;
       const existingFlowIds = (existing.integrationFlows ?? []).map((f) => f.flowId);
+      // MIP alertTemplate literal satır sonu kabul etmez; newline'ları boşluğa çevir.
+      const normTemplate = (t) => (t ?? "").replace(/\r?\n/g, " ");
       const body = {
         alertName: args.alertName ?? existing.alertName,
         alertMailList: args.alertMailList ?? existing.alertMailList,
         postingFrequency: args.postingFrequency ?? existing.postingFrequency,
         flowIds: args.flowIds ?? existingFlowIds,
         isTemplateEnabled: useTemplate,
-        alertTemplate: useTemplate ? (args.alertTemplate ?? existing.alertTemplate ?? "") : "",
+        alertTemplate: useTemplate ? normTemplate(args.alertTemplate ?? existing.alertTemplate) : "",
         alertBodyType: useTemplate ? (args.alertBodyType ?? existing.alertBodyType ?? "") : "",
       };
       const res = await axios.put(`${BASE_URL}/api/alerts/${id}`, body, { headers });

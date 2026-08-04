@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## Fixed in 1.0.12 — Multi-line alert templates
+
+MIP's `alertTemplate` field rejects any literal line break (`\n`/`\r\n`) with a misleading *"alertTemplate: Cannot be blank"* error, so pasting a normal multi-line HTML template failed. `mip_create_alert` / `mip_update_alert` now normalize newlines to spaces before sending — HTML is whitespace-insensitive between tags, so rendering is unchanged.
+
 ## What's new in 1.0.11 — Alerts + SMTP settings (Integrations)
 
 Second Integrations tool group. Scheduled e-mail **Alerts** (backed by `/api/alerts`) and their **SMTP config** (`/api/alerts/mail-config`) are now fully manageable:
