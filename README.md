@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.27 — System Health Excel report (standard template)
+
+- **`mip_generate_system_health_excel`** — samples the health endpoint N times and writes a **fixed-layout** `.xlsx` to `MIP_DOWNLOAD_DIR`. Always the same two sheets: **Ozet** (per-pod CPU% / memory (MB) / inflight min·avg·max + OK/UYARI status) and **Ornekler** (the raw samples). Built as OOXML via JSZip (same approach as the monitoring report), so the template is byte-identical every run — only the values change. Verified valid by reading it back with openpyxl.
+
 ## What's new in 1.0.26 — License info (read-only)
 
 Two **read-only** License tools (GET only — no save/write is exposed, by design, on the live customer server):

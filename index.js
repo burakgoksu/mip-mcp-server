@@ -80,6 +80,72 @@ function extractFilename(headers, fallback) {
   return match ? match[1].trim() : fallback;
 }
 
+// ─── System Health Excel Builder (SABIT/STANDART şablon) ──────────────────────
+// pods: { podName -> {cpu:[], mem:[], inflight:[]} } ; sampleRows: [{sample,pod,cpu,mem,inflight}]
+// meta: { ts, samples, intervalMs }. Her çağrıda birebir aynı 2-sayfalı düzen üretir.
+async function buildSystemHealthXlsx(pods, sampleRows, meta) {
+  const JSZip = (await import("jszip")).default;
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const colName = (n) => { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const S = (v, st) => ({ t: "s", v, s: st });
+  const N = (v, st) => ({ t: "n", v, s: st });
+  const rowXml = (cells, r) => {
+    let x = `<row r="${r}">`;
+    cells.forEach((c, i) => {
+      if (c == null) return;
+      const ref = `${colName(i)}${r}`;
+      const st = c.s ? ` s="${c.s}"` : "";
+      if (c.t === "n") x += `<c r="${ref}"${st}><v>${c.v}</v></c>`;
+      else x += `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${esc(c.v)}</t></is></c>`;
+    });
+    return x + `</row>`;
+  };
+  const sheetXml = (rows, widths) => {
+    let x = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`;
+    if (widths) { x += `<cols>`; widths.forEach((w, i) => (x += `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`)); x += `</cols>`; }
+    x += `<sheetData>`;
+    rows.forEach((cells, idx) => (x += rowXml(cells, idx + 1)));
+    return x + `</sheetData></worksheet>`;
+  };
+
+  const stat = (a) => { const v = a.filter((x) => Number.isFinite(x)); if (!v.length) return { min: 0, avg: 0, max: 0 }; return { min: Math.min(...v), avg: v.reduce((s, x) => s + x, 0) / v.length, max: Math.max(...v) }; };
+  const r2 = (x) => Math.round(x * 100) / 100;
+
+  // Sheet 1: Ozet
+  const s1 = [];
+  s1.push([S("MIP System Health Raporu", 1)]);
+  s1.push([S("Zaman", 3), S(meta.ts)]);
+  s1.push([S("Ornekleme", 3), S(`${meta.samples} ornek x ${meta.intervalMs} ms`)]);
+  s1.push([S("Pod sayisi", 3), N(Object.keys(pods).length)]);
+  s1.push([]);
+  s1.push(["Pod", "CPU Min %", "CPU Ort %", "CPU Maks %", "Bellek Min (MB)", "Bellek Ort (MB)", "Bellek Maks (MB)", "Inflight Min", "Inflight Ort", "Inflight Maks", "Durum"].map((h) => S(h, 2)));
+  for (const [name, d] of Object.entries(pods)) {
+    const c = stat(d.cpu), m = stat(d.mem), f = stat(d.inflight);
+    const warn = c.max * 100 > 80 || m.max / 1024 > 8 || f.max > 1000;
+    s1.push([
+      S(name), N(r2(c.min * 100)), N(r2(c.avg * 100)), N(r2(c.max * 100)),
+      N(Math.round(m.min)), N(Math.round(m.avg)), N(Math.round(m.max)),
+      N(f.min), N(r2(f.avg)), N(f.max), S(warn ? "UYARI" : "OK", warn ? 4 : 0),
+    ]);
+  }
+
+  // Sheet 2: Ornekler (ham)
+  const s2 = [["Ornek #", "Pod", "CPU %", "Bellek (MB)", "Inflight"].map((h) => S(h, 2))];
+  for (const row of sampleRows) s2.push([N(row.sample), S(row.pod), N(r2(row.cpu * 100)), N(Math.round(row.mem)), N(row.inflight)]);
+
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="15"/><color rgb="FF203864"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF305496"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+  zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Ozet" sheetId="1" r:id="rId1"/><sheet name="Ornekler" sheetId="2" r:id="rId2"/></sheets></workbook>`);
+  zip.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file("xl/styles.xml", styles);
+  zip.file("xl/worksheets/sheet1.xml", sheetXml(s1, [26, 12, 12, 12, 16, 16, 16, 12, 12, 12, 10]));
+  zip.file("xl/worksheets/sheet2.xml", sheetXml(s2, [10, 26, 12, 16, 12]));
+  return await zip.generateAsync({ type: "nodebuffer" });
+}
+
 // ─── MIP Flow Schema Knowledge Base ──────────────────────────────────────────
 // 310 gerçek flow analiz edilerek oluşturulmuştur. 55 node tipi, tüm alanlar.
 const MIP_FLOW_SCHEMA = {
@@ -2239,6 +2305,19 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
     },
   },
   {
+    name: "mip_generate_system_health_excel",
+    description:
+      "System Health verisinden STANDART formatlı bir EXCEL (.xlsx) raporu üretir ve MIP_DOWNLOAD_DIR'e kaydeder. Sabit 2 sayfa: 'Ozet' (pod başına CPU%/bellek/inflight min-ort-maks + Durum) ve 'Ornekler' (ham örnekler). Şablon her çağrıda birebir aynıdır; yalnızca değerler değişir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        samples: { type: "number", description: "Örnekleme sayısı (varsayılan 5, max 10)" },
+        intervalMs: { type: "number", description: "Örnekler arası bekleme ms (varsayılan 800, max 3000)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "mip_test_connectivity",
     description:
       "Test Connectivity: MIP backend'inden verilen host:port hedefine bağlantı testi yapar (TCP/HTTP handshake, non-destructive). Sonuç: status (SUCCESS/UNREACHABLE), resultCode, duration, responsePayload.",
@@ -3998,6 +4077,35 @@ ${wsdlContent}`;
       }
       md += `_Not: Bu MIP instance'ında geçmiş (historical) health verisi mevcut değil; rapor yukarıdaki kısa örnekleme penceresine dayanır._\n`;
       return md;
+    }
+
+    case "mip_generate_system_health_excel": {
+      const samples = Math.min(Math.max(args.samples ?? 5, 1), 10);
+      const intervalMs = Math.min(Math.max(args.intervalMs ?? 800, 0), 3000);
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const pods = {};
+      const sampleRows = [];
+      for (let i = 0; i < samples; i++) {
+        const res = await axios.get(`${BASE_URL}/api/backend-system-statics`, { headers });
+        const rows = res.data?.data ?? (Array.isArray(res.data) ? res.data : []);
+        for (const p of rows) {
+          const k = p.podName ?? "unknown";
+          (pods[k] ??= { cpu: [], mem: [], inflight: [] });
+          const cpu = Number(p.cpuLoad), mem = Number(p.memoryLoad), inflight = Number(p.inflightExchanges);
+          pods[k].cpu.push(cpu);
+          pods[k].mem.push(mem);
+          pods[k].inflight.push(inflight);
+          sampleRows.push({ sample: i + 1, pod: k, cpu, mem, inflight });
+        }
+        if (i < samples - 1) await sleep(intervalMs);
+      }
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const fnTs = ts.replace(/[: ]/g, "-");
+      const buffer = await buildSystemHealthXlsx(pods, sampleRows, { ts, samples, intervalMs });
+      const filePath = saveFile(buffer, `MIP_System_Health_${fnTs}.xlsx`);
+      return `System Health Excel raporu oluşturuldu (${samples} örnek, ${Object.keys(pods).length} pod): ${filePath}`;
     }
 
     case "mip_test_connectivity": {
