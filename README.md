@@ -2,6 +2,16 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.25 — Alert Configurations (Management)
+
+The Alert Configurations screen turned out to be reachable after all — it lives behind the `/healthcheck-service` path prefix (`VITE_MAIN_SYSTEM_HEALTH_URL`), not the main API base, which is why it first looked like a 404. Seven tools:
+
+- **Mail receivers** — `mip_list_alert_config_emails` / `mip_add_alert_config_email` / `mip_remove_alert_config_email` (`/healthcheck-service/api/email-alerts`, add is POST, remove is DELETE `/{id}`).
+- **Alert rules** — `mip_get_alert_rules` / `mip_update_alert_rules`. Per-component thresholds (cpu/ram/disk %, response-time ms, db-size GB, connection-pool %). Update merges each `componentKey` you pass against the current rules and PUTs the full array to `/api/alert-rules/multiple-component`, so partial edits keep the rest.
+- **Cron frequency** — `mip_get_cron_frequency` / `mip_update_cron_frequency`. Per-component health-check cron; same merge-and-PUT to `/api/cron-frequency/multiple-component`.
+
+Verified live without disturbing real config: an email was added then removed (round-trip), and rules/cron write paths confirmed with no-op PUTs (current values sent back unchanged). The base defaults to `/healthcheck-service`, overridable via `MIP_HEALTH_PATH`.
+
 ## What's new in 1.0.24 — Management: System Health & Test Connectivity
 
 Safe, read/diagnostic Management tools (destructive areas deliberately untouched — see note):
