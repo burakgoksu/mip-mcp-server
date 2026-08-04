@@ -2,6 +2,18 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.11 — Alerts + SMTP settings (Integrations)
+
+Second Integrations tool group. Scheduled e-mail **Alerts** (backed by `/api/alerts`) and their **SMTP config** (`/api/alerts/mail-config`) are now fully manageable:
+
+- **`mip_list_alerts`** — list alerts (name, recipients, cron schedule + human description, template type, flows), paginated, filter by name.
+- **`mip_create_alert`** — create an alert for one or more flows on a cron schedule (`postingFrequency`, e.g. `0 0 8 * * ?`). The template is **inline**: set `useTemplate:true` and pass `alertTemplate` (HTML/text body) + `alertBodyType` (`HTML|JSON|CSV|XML|TEXT`); otherwise MIP sends its default body. There is no separate template library — the template lives on the alert itself.
+- **`mip_update_alert`** — update by id; fetches and merges the existing record (maps `integrationFlows` → `flowIds`) so partial edits keep the rest.
+- **`mip_delete_alert`** — delete by id.
+- **`mip_get_alert_mail_config` / `mip_save_alert_mail_config` / `mip_delete_alert_mail_config`** — read/write/clear the SMTP settings (from, address, port, timeouts, authentication, `credentialId`, encryption) that alert e-mails are sent through.
+
+Alert create → filter → update (merge) → delete verified end-to-end against a live MIP instance.
+
 ## What's new in 1.0.10 — Counters (Integrations)
 
 First tool group of the **Integrations** operations menu. Counters (backed by MIP's `/api/number-ranges`) can now be managed end-to-end through natural language:
