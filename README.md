@@ -2,6 +2,14 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.14 — Search Message (Monitoring, stage 2)
+
+The companion to Message Search Rules: search a flow's messages by the value a rule extracts.
+
+- **`mip_search_messages`** — `GET /api/flows/{flowId}/message-search-rules/message-ids`. Pass `flowId` and optionally `resultValue` (a **regex** over the extracted value; empty/omitted returns every message in range), `ruleIds` (defaults to all *enabled* rules on the flow), and a `startDate`/`endDate` window (defaults to the last 24h). Returns messageId, time, resultValue, status, rule id.
+
+Non-obvious detail worked out live: `resultValueRegex` and the base64 `messagesearchrulelistfilter` must be sent as **HTTP headers**, not query params — passed as query params the server silently ignores them and returns everything. Verified with matching / non-matching / empty searches.
+
 ## What's new in 1.0.13 — Message Search Rules (Integrations)
 
 Third Integrations tool group. Message search rules (backed by `/api/message-search-rules`) extract a field from a flow's messages via XPATH/JSON_PATH so it can be searched/shown in Monitoring:
