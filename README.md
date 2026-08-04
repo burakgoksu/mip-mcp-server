@@ -2,6 +2,15 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.19 — RFC Destinations & MCP Servers (Destinations)
+
+Two more Destinations groups:
+
+- **RFC Destinations** (`/api/rfc-destinations`) — `mip_list/create/update/delete_rfc_destination`. SAP application-server connections (destinationName, ashost, sysnr, client, user, password + lang/peakLimit/poolCapacity/sapRouter). List hides the password; update preserves it when omitted (verified: an update without `password` keeps the stored one).
+- **MCP Servers** (`/api/mcp-servers`) — `mip_list/create/update/delete_mcp_server`. External MCP servers MIP flows can call: `name` + `serverConfigJson` (validated JSON) + `authType` (NONE/API_KEY/BEARER/BASIC/OAUTH2/CLIENT_CERT; credentialId required when not NONE) + optional `defaultTool`, `isEnabled`.
+
+MCP verified end-to-end (create → filter → disable → delete); RFC create + password-preserving update verified live.
+
 ## What's new in 1.0.18 — JDBC Destinations (Destinations)
 
 First of the Destinations tool groups. JDBC destinations (backed by `/api/databases`) are now manageable:

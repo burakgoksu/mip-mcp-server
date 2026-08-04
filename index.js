@@ -1906,6 +1906,149 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
       required: ["id"],
     },
   },
+
+  // ─── RFC Destinations (Operations > Destinations > RFC) ────────────────────────
+  // SAP RFC bağlantı hedefleri. Endpoint: /api/rfc-destinations.
+  {
+    name: "mip_list_rfc_destinations",
+    description:
+      "RFC (SAP) destination listesini döner. Her kayıt: destinationName, ashost (Application Server), sysnr, client, user, lang, peakLimit, poolCapacity, sapRouter. Parola gizlidir. Sayfalıdır.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "Opsiyonel: ad/ashost/client/sysnr/user/sapRouter içinde arama" },
+        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_create_rfc_destination",
+    description: "Yeni bir RFC (SAP) destination oluşturur. SAP application server bağlantı bilgilerini içerir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        destinationName: { type: "string", description: "Destination adı (benzersiz)" },
+        ashost: { type: "string", description: "Application Server host (SAP AS host)" },
+        sysnr: { type: "string", description: "System Number (ör. '00')" },
+        client: { type: "string", description: "Client (ör. '100')" },
+        user: { type: "string", description: "SAP kullanıcı adı" },
+        password: { type: "string", description: "SAP parolası" },
+        lang: { type: "string", description: "Dil (ör. 'EN', 'TR') — opsiyonel" },
+        peakLimit: { type: "string", description: "Peak limit (ör. '0') — opsiyonel" },
+        poolCapacity: { type: "string", description: "Pool capacity (ör. '10') — opsiyonel" },
+        sapRouter: { type: "string", description: "SAP Router stringi — opsiyonel" },
+      },
+      required: ["destinationName", "ashost", "sysnr", "client", "user", "password"],
+    },
+  },
+  {
+    name: "mip_update_rfc_destination",
+    description:
+      "Mevcut bir RFC destination'ı id ile günceller. Verilen alanlar mevcut kaydın üstüne merge edilir; password verilmezse mevcut korunur.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Güncellenecek destination ID" },
+        destinationName: { type: "string", description: "Yeni ad (opsiyonel)" },
+        ashost: { type: "string", description: "Yeni AS host (opsiyonel)" },
+        sysnr: { type: "string", description: "Yeni system number (opsiyonel)" },
+        client: { type: "string", description: "Yeni client (opsiyonel)" },
+        user: { type: "string", description: "Yeni kullanıcı (opsiyonel)" },
+        password: { type: "string", description: "Yeni parola (opsiyonel; verilmezse korunur)" },
+        lang: { type: "string", description: "Yeni dil (opsiyonel)" },
+        peakLimit: { type: "string", description: "Yeni peak limit (opsiyonel)" },
+        poolCapacity: { type: "string", description: "Yeni pool capacity (opsiyonel)" },
+        sapRouter: { type: "string", description: "Yeni SAP router (opsiyonel)" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "mip_delete_rfc_destination",
+    description: "Belirli bir RFC destination'ı id ile siler.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "number", description: "Silinecek destination ID" } },
+      required: ["id"],
+    },
+  },
+
+  // ─── MCP Servers (Operations > Destinations > MCP Servers) ─────────────────────
+  // MIP flow'larının çağırabileceği harici MCP sunucuları. Endpoint: /api/mcp-servers.
+  {
+    name: "mip_list_mcp_servers",
+    description:
+      "Tanımlı MCP server listesini döner. Her kayıt: name, serverConfigJson, authType, isEnabled, defaultTool. Sayfalıdır. filter name/serverConfigJson içinde arar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "Opsiyonel: ad/config içinde geçen metin" },
+        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_create_mcp_server",
+    description:
+      "Yeni bir MCP server tanımlar. serverConfigJson geçerli bir JSON (MCP server config) olmalı. authType NONE değilse credentialId zorunludur; API_KEY için credentialHeaderName verilebilir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "MCP server adı (benzersiz, max 255)" },
+        serverConfigJson: {
+          type: "string",
+          description:
+            "MCP server konfigürasyonu (geçerli JSON metni). Ör. {\"mcpServers\":{\"filesystem\":{\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]}}}",
+        },
+        authType: {
+          type: "string",
+          enum: ["NONE", "API_KEY", "BEARER", "BASIC", "OAUTH2", "CLIENT_CERT"],
+          description: "Kimlik doğrulama tipi (varsayılan NONE)",
+        },
+        credentialId: { type: "string", description: "authType NONE değilse zorunlu — kimlik bilgisi credential ID" },
+        credentialHeaderName: { type: "string", description: "API_KEY için header/env değişken adı (opsiyonel)" },
+        defaultTool: { type: "string", description: "Varsayılan tool adı (opsiyonel)" },
+        isEnabled: { type: "boolean", description: "Etkin mi (varsayılan true)" },
+      },
+      required: ["name", "serverConfigJson"],
+    },
+  },
+  {
+    name: "mip_update_mcp_server",
+    description:
+      "Mevcut bir MCP server'ı id ile günceller (isEnabled dahil). Verilen alanlar mevcut kaydın üstüne merge edilir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Güncellenecek MCP server ID" },
+        name: { type: "string", description: "Yeni ad (opsiyonel)" },
+        serverConfigJson: { type: "string", description: "Yeni config JSON (opsiyonel)" },
+        authType: {
+          type: "string",
+          enum: ["NONE", "API_KEY", "BEARER", "BASIC", "OAUTH2", "CLIENT_CERT"],
+          description: "Yeni auth tipi (opsiyonel)",
+        },
+        credentialId: { type: "string", description: "Yeni credential ID (opsiyonel)" },
+        credentialHeaderName: { type: "string", description: "Yeni header adı (opsiyonel)" },
+        defaultTool: { type: "string", description: "Yeni varsayılan tool (opsiyonel)" },
+        isEnabled: { type: "boolean", description: "Etkin/pasif (opsiyonel)" },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "mip_delete_mcp_server",
+    description: "Belirli bir MCP server'ı id ile siler.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "number", description: "Silinecek MCP server ID" } },
+      required: ["id"],
+    },
+  },
 ];
 
 // ─── Monitoring Excel Report Builder ──────────────────────────────────────────
@@ -3241,6 +3384,143 @@ ${wsdlContent}`;
     case "mip_delete_jdbc_destination": {
       const res = await axios.delete(`${BASE_URL}/api/databases/${args.id}`, { headers });
       return `JDBC destination silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+    }
+
+    // ─── RFC Destinations (/api/rfc-destinations) ───────────────────────────────
+    case "mip_list_rfc_destinations": {
+      const params = { paginationPage: (args.page ?? 1) - 1, paginationSize: args.size ?? 200 };
+      if (args.filter) {
+        const criteria = {
+          dataOption: "any",
+          searchCriteriaList: ["destinationName", "ashost", "client", "sysnr", "user", "sapRouter"].map((k) => ({
+            filterKey: k,
+            operation: "cn",
+            value: args.filter,
+          })),
+        };
+        params.filter = Buffer.from(JSON.stringify(criteria)).toString("base64");
+      }
+      const res = await axios.get(`${BASE_URL}/api/rfc-destinations`, { headers, params });
+      const items = res.data?.content ?? (Array.isArray(res.data) ? res.data : []);
+      const safe = items.map(({ password, ...rest }) => rest);
+      return JSON.stringify(res.data?.content ? { ...res.data, content: safe } : safe, null, 2);
+    }
+
+    case "mip_create_rfc_destination": {
+      const body = {
+        destinationName: args.destinationName,
+        ashost: args.ashost,
+        sysnr: args.sysnr,
+        client: args.client,
+        user: args.user,
+        password: args.password,
+        lang: args.lang ?? "",
+        peakLimit: args.peakLimit ?? "0",
+        poolCapacity: args.poolCapacity ?? "",
+        sapRouter: args.sapRouter ?? "",
+      };
+      const res = await axios.post(`${BASE_URL}/api/rfc-destinations`, body, { headers });
+      return `RFC destination oluşturuldu: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_update_rfc_destination": {
+      const { id } = args;
+      const cur = await axios.get(`${BASE_URL}/api/rfc-destinations`, {
+        headers,
+        params: { paginationPage: 0, paginationSize: 500 },
+      });
+      const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
+      const existing = items.find((d) => d.id === id);
+      if (!existing) throw new Error(`RFC destination bulunamadı: id ${id}`);
+      const body = {
+        destinationName: args.destinationName ?? existing.destinationName,
+        ashost: args.ashost ?? existing.ashost,
+        sysnr: args.sysnr ?? existing.sysnr,
+        client: args.client ?? existing.client,
+        user: args.user ?? existing.user,
+        lang: args.lang ?? existing.lang ?? "",
+        peakLimit: args.peakLimit ?? existing.peakLimit ?? "0",
+        poolCapacity: args.poolCapacity ?? existing.poolCapacity ?? "",
+        sapRouter: args.sapRouter ?? existing.sapRouter ?? "",
+      };
+      // password liste yanıtında yok; yalnızca verilirse gönder (verilmezse MIP mevcut parolayı korur).
+      if (args.password !== undefined) body.password = args.password;
+      const res = await axios.put(`${BASE_URL}/api/rfc-destinations/${id}`, body, { headers });
+      return `RFC destination güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_delete_rfc_destination": {
+      const res = await axios.delete(`${BASE_URL}/api/rfc-destinations/${args.id}`, { headers });
+      return `RFC destination silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+    }
+
+    // ─── MCP Servers (/api/mcp-servers) ─────────────────────────────────────────
+    case "mip_list_mcp_servers": {
+      const params = { paginationPage: (args.page ?? 1) - 1, paginationSize: args.size ?? 200 };
+      if (args.filter) {
+        const criteria = {
+          dataOption: "any",
+          searchCriteriaList: ["name", "serverConfigJson"].map((k) => ({
+            filterKey: k,
+            operation: "cn",
+            value: args.filter,
+          })),
+        };
+        params.filter = Buffer.from(JSON.stringify(criteria)).toString("base64");
+      }
+      const res = await axios.get(`${BASE_URL}/api/mcp-servers`, { headers, params });
+      return JSON.stringify(res.data, null, 2);
+    }
+
+    case "mip_create_mcp_server": {
+      const authType = args.authType ?? "NONE";
+      if (authType !== "NONE" && !args.credentialId) {
+        throw new Error("authType NONE değilse credentialId zorunludur.");
+      }
+      const useCredentialAuth = authType !== "NONE";
+      const body = {
+        name: args.name,
+        serverConfigJson: args.serverConfigJson,
+        isEnabled: args.isEnabled ?? true,
+        authType,
+        useCredentialAuth,
+        credentialId: useCredentialAuth ? (args.credentialId ?? null) : null,
+        credentialHeaderName: authType === "API_KEY" ? (args.credentialHeaderName ?? null) : null,
+        defaultTool: args.defaultTool ?? null,
+      };
+      const res = await axios.post(`${BASE_URL}/api/mcp-servers`, body, { headers });
+      return `MCP server oluşturuldu: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_update_mcp_server": {
+      const { id } = args;
+      const cur = await axios.get(`${BASE_URL}/api/mcp-servers`, {
+        headers,
+        params: { paginationPage: 0, paginationSize: 500 },
+      });
+      const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
+      const existing = items.find((s) => s.id === id);
+      if (!existing) throw new Error(`MCP server bulunamadı: id ${id}`);
+      const authType = args.authType ?? existing.authType ?? "NONE";
+      const useCredentialAuth = authType !== "NONE";
+      const body = {
+        name: args.name ?? existing.name,
+        serverConfigJson: args.serverConfigJson ?? existing.serverConfigJson,
+        isEnabled: args.isEnabled ?? existing.isEnabled ?? true,
+        authType,
+        useCredentialAuth,
+        credentialId: useCredentialAuth ? (args.credentialId ?? existing.credentialId ?? null) : null,
+        credentialHeaderName:
+          authType === "API_KEY" ? (args.credentialHeaderName ?? existing.credentialHeaderName ?? null) : null,
+        defaultTool: args.defaultTool ?? existing.defaultTool ?? null,
+      };
+      const res = await axios.put(`${BASE_URL}/api/mcp-servers/${id}`, body, { headers });
+      return `MCP server güncellendi: ${JSON.stringify(res.data)}`;
+    }
+
+    case "mip_delete_mcp_server": {
+      const res = await axios.delete(`${BASE_URL}/api/mcp-servers/${args.id}`, { headers });
+      return `MCP server silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
     }
 
     default:
