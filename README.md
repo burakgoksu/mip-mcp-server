@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.15 — Performance-Monitoring search & paging
+
+The Monitoring > Performance-Monitoring screen is served by the same endpoint as the existing `mip_get_message_completion_times` tool (`/api/monitoring/logs/message-completion-times`), so it was already covered. This release brings the tool to full parity with the screen: an optional `filter` (search over flowId/flowName/messageCount) and `page`, and dates now accept `YYYY-MM-DD HH:mm` as well as `YYYY-MM-DD`.
+
 ## What's new in 1.0.14 — Search Message (Monitoring, stage 2)
 
 The companion to Message Search Rules: search a flow's messages by the value a rule extracts.

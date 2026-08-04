@@ -813,13 +813,15 @@ const TOOLS = [
   {
     name: "mip_get_message_completion_times",
     description:
-      "Tarih aralığında flow başına mesaj sayısını ve ortalama işlem (completion) süresini döner. " +
-      "Performans/yavaş flow analizi için kullanışlıdır (zaman damgası içermez).",
+      "Monitoring > Performance-Monitoring ekranının verisi: tarih aralığında flow başına mesaj sayısını ve işlem (completion) süresini döner. " +
+      "Performans/yavaş flow analizi için kullanışlıdır (zaman damgası içermez). filter ile flowId/flowName/messageCount içinde arama yapılabilir.",
     inputSchema: {
       type: "object",
       properties: {
-        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
-        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        startDate: { type: "string", description: "Başlangıç tarihi 'YYYY-MM-DD' veya 'YYYY-MM-DD HH:mm'" },
+        endDate: { type: "string", description: "Bitiş tarihi 'YYYY-MM-DD' veya 'YYYY-MM-DD HH:mm'" },
+        filter: { type: "string", description: "Opsiyonel: flowId/flowName/messageCount içinde geçen metin" },
+        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
         paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel)" },
       },
       required: ["startDate", "endDate"],
@@ -1998,8 +2000,23 @@ async function handleTool(name, args) {
     }
 
     case "mip_get_message_completion_times": {
-      const params = { startDate: args.startDate, endDate: args.endDate };
+      const params = {
+        startDate: args.startDate,
+        endDate: args.endDate,
+        paginationPage: (args.page ?? 1) - 1,
+      };
       if (args.paginationSize !== undefined) params.paginationSize = args.paginationSize;
+      if (args.filter) {
+        const criteria = {
+          dataOption: "any",
+          searchCriteriaList: ["flowId", "flowName", "messageCount"].map((k) => ({
+            filterKey: k,
+            operation: "cn",
+            value: args.filter,
+          })),
+        };
+        params.filter = Buffer.from(JSON.stringify(criteria)).toString("base64");
+      }
       const res = await axios.get(`${BASE_URL}/api/monitoring/logs/message-completion-times`, {
         headers,
         params,
