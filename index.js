@@ -562,6 +562,7 @@ const MIP_FLOW_SCHEMA = {
   },
 
   importantNotes: [
+    "SAFETY / DANGER ZONES (read first): This MCP deliberately exposes NO tools for MIP's 'Database Management', 'DB Analysis & Backup' (backup/restore), or license write. These operations can cause IRREVERSIBLE damage on a live/customer MIP server. NEVER build, call, or probe: /api/database-management/*, /api/log-deletion*, /admin/backups, (/healthcheck-service)/admin/restore(/latest), /api/license/save. License is READ-ONLY (mip_get_license_detail / mip_check_license). — TR: Bu MCP; Database Management, DB Analysis & Backup ve lisans yazma icin BILEREK tool sunmaz; geri donulemez hasar riski. Bu endpoint'lere dokunma. Lisans yalnizca salt-okunur.",
     "id, createdDate, createdBy, lastModifiedDate, lastModifiedBy alanlarını yeni flow'larda EKLEME — MIP bunları otomatik atar.",
     "flowLocked: 0 olmalı (1 = kilitli flow, düzenlenemez).",
     "position değerleri UI'da düzgün görünüm için 300px aralıklı set edilmeli (x: 0, 300, 600, 900...).",

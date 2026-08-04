@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.28 — Danger-zone safety note in the flow schema KB
+
+Added a first-line entry to `MIP_FLOW_SCHEMA.importantNotes` (served by `mip_get_flow_schema`): the MCP deliberately exposes **no** tools for Database Management, DB Analysis & Backup (backup/restore), or license write — these can cause irreversible damage on a live MIP server and must never be built, called, or probed (license is read-only). Bilingual (EN + short TR) so it's clear regardless of the caller's language; the MCP's tool descriptions/KB are static strings and don't auto-translate.
+
 ## What's new in 1.0.27 — System Health Excel report (standard template)
 
 - **`mip_generate_system_health_excel`** — samples the health endpoint N times and writes a **fixed-layout** `.xlsx` to `MIP_DOWNLOAD_DIR`. Always the same two sheets: **Ozet** (per-pod CPU% / memory (MB) / inflight min·avg·max + OK/UYARI status) and **Ornekler** (the raw samples). Built as OOXML via JSZip (same approach as the monitoring report), so the template is byte-identical every run — only the values change. Verified valid by reading it back with openpyxl.
