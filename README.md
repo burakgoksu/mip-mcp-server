@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## Fixed in 1.0.21 — JDBC destination requires user/password for all drivers
+
+Live testing across all five drivers revealed the backend requires `userName` and `password` for **every** driver, including MongoDB (the UI's validation exempts MongoDB, but the API rejects a blank credential). `mip_create_jdbc_destination` now marks both as required and no longer special-cases MongoDB.
+
 ## What's new in 1.0.20 — OFTP2 Connections (Destinations, complete)
 
 Final Destinations group — completing full MCP coverage of the Destinations menu.

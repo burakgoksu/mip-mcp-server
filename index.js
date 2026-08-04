@@ -1842,7 +1842,7 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
   {
     name: "mip_create_jdbc_destination",
     description:
-      "Yeni bir JDBC destination oluşturur. driver dışındaki sürücüler userName/password ister (mongodb hariç). jdbcUrl bağlantı stringidir.",
+      "Yeni bir JDBC destination oluşturur. userName/password TÜM sürücülerde zorunludur (mongodb dahil). jdbcUrl bağlantı stringidir.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1862,10 +1862,10 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
           type: "string",
           description: "Bağlantı stringi, ör. jdbc:postgresql://host:port/db?currentSchema=dbo",
         },
-        userName: { type: "string", description: "Kullanıcı adı (mongodb hariç zorunlu)" },
-        password: { type: "string", description: "Parola (mongodb hariç zorunlu)" },
+        userName: { type: "string", description: "Kullanıcı adı (tüm sürücülerde zorunlu)" },
+        password: { type: "string", description: "Parola (tüm sürücülerde zorunlu)" },
       },
-      required: ["databaseName", "driver", "jdbcUrl"],
+      required: ["databaseName", "driver", "jdbcUrl", "userName", "password"],
     },
   },
   {
@@ -3434,15 +3434,16 @@ ${wsdlContent}`;
     }
 
     case "mip_create_jdbc_destination": {
-      if (args.driver !== "mongodb" && (!args.userName || !args.password)) {
-        throw new Error("Bu sürücü için userName ve password zorunludur (mongodb hariç).");
+      // Backend userName/password'ü TÜM sürücülerde zorunlu tutar (mongodb dahil).
+      if (!args.userName || !args.password) {
+        throw new Error("userName ve password zorunludur (mongodb dahil tüm sürücüler).");
       }
       const body = {
         databaseName: args.databaseName,
         driver: args.driver,
         jdbcUrl: args.jdbcUrl,
-        userName: args.userName ?? "",
-        password: args.password ?? "",
+        userName: args.userName,
+        password: args.password,
       };
       const res = await axios.post(`${BASE_URL}/api/databases`, body, { headers });
       return `JDBC destination oluşturuldu: ${JSON.stringify(res.data)}`;
