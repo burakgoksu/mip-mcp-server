@@ -1,6 +1,8 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **91 tools** in total.
+
+> ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
 ## What's new in 1.0.28 — Danger-zone safety note in the flow schema KB
 
@@ -234,20 +236,22 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-### Flow Management
+**91 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+
+### Flows & Packages
 
 | Tool | Description |
 |---|---|
-| `mip_get_flow_schema` | Returns comprehensive schema for all MIP node types and flow templates |
-| `mip_create_and_import_flow` | Creates and imports a new flow into MIP |
-| `mip_export_packages_and_flows` | Exports packages and flows as a zip file |
-| `mip_import_packages_and_flows` | Imports packages and flows from a zip file |
+| `mip_get_flow_schema` | Returns the embedded MIP flow KB (node types, edge/condition wiring, templates, expression language, validation, safety notes). **Call this before building any flow.** |
+| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers |
+| `mip_export_packages_and_flows` | Exports packages and flows as a zip |
+| `mip_import_packages_and_flows` | Imports packages and flows from a zip |
 
-### Flow Deploy & Monitoring
+### Deploy & Endpoints
 
 | Tool | Description |
 |---|---|
-| `mip_deploy_flow` | Deploys a flow by flow ID (optionally specify version) |
+| `mip_deploy_flow` | Deploys a flow (auto-resolves latest version if omitted) |
 | `mip_undeploy_flow` | Undeploys (stops) a running flow |
 | `mip_set_flow_log_level` | Sets log level for a deployed flow: `1` = Only I/O Payload, `2` = All Steps |
 
@@ -256,101 +260,207 @@ Add to your `.mcp.json` or Claude Code settings:
 | Tool | Description |
 |---|---|
 | `mip_export_flow_mappings` | Exports flow mappings by ID |
-| `mip_import_flow_mappings` | Imports flow mappings from a zip file into a target flow |
+| `mip_import_flow_mappings` | Imports flow mappings from a zip into a target flow |
 | `mip_upload_flow_mapping_sample` | Uploads a sample file for a flow mapping |
 | `mip_reupload_flow_mapping_sample` | Re-uploads a sample file for a flow mapping |
 | `mip_download_flow_mapping_sample` | Downloads a flow mapping sample file |
 
-### Resources (Groovy / XSLT / XSD / WSDL)
+### Resources & WSDL
 
 | Tool | Description |
 |---|---|
-| `mip_upload_resource` | Uploads a Groovy (`.groovy`), XSLT (`.xsl` / `.xslt`), XSD (`.xsd`), or WSDL (`.wsdl`) file to a flow. For hand-crafted WSDLs prefer `mip_upload_wsdl` (auto-validates `elementFormDefault`). |
+| `mip_upload_resource` | Uploads a Groovy / XSLT / XSD / WSDL file to a flow |
 | `mip_reupload_resource` | Updates an existing resource by ID |
-| `mip_list_resources` | Lists all resources; optionally filter by flow ID |
-| `mip_generate_wsdl` | Generates a MIP-compatible WSDL from a structured spec. `elementFormDefault="qualified"` is baked in. Returns the WSDL text plus `bindingMetadata` ready to paste into a SOAP Start node. Optional `uploadAfter:true` uploads to a flow in the same call. |
-| `mip_upload_wsdl` | Uploads a WSDL file to a flow with automatic validation: injects `elementFormDefault="qualified"` if missing, replaces `unqualified` with `qualified`. Original file on disk is not modified; corrected copy is written under `MIP_DOWNLOAD_DIR`. |
+| `mip_list_resources` | Lists resources; optional flow filter |
+| `mip_generate_wsdl` | Generates a MIP-compatible WSDL from a spec (`elementFormDefault="qualified"` baked in) + `bindingMetadata` for the SOAP Start node; optional `uploadAfter` |
+| `mip_upload_wsdl` | Uploads a WSDL with auto-validation (forces `qualified`); corrected copy saved under `MIP_DOWNLOAD_DIR` |
 
 ### Credentials
 
 | Tool | Description |
 |---|---|
-| `mip_list_credentials` | Lists all saved credentials (BASIC, OAUTH_2, AZURE, AWS, GOOGLE_PUBSUB) |
-| `mip_create_credential` | Creates a new credential for accessing external services |
-| `mip_update_credential` | Updates an existing credential |
-| `mip_delete_credential` | Deletes a credential (only if not in use by any flow) |
+| `mip_list_credentials` | Lists credentials (secrets stripped) — BASIC/OAUTH_2/AZURE/AWS/GOOGLE_PUBSUB |
+| `mip_create_credential` | Creates a credential for external services |
+| `mip_update_credential` | Updates a credential |
+| `mip_delete_credential` | Deletes a credential (if unused) |
 
 ### Service Users
 
 | Tool | Description |
 |---|---|
-| `mip_list_service_users` | Lists MIP service users with optional pagination and search |
-| `mip_create_service_user` | Creates a new MIP user with specified roles (`developer`, `ui-user`, `monitoring`, `admin`, `service-user`) |
-| `mip_update_service_user` | Updates an existing user's email, password, or roles |
-| `mip_delete_service_user` | Deletes a MIP service user |
-| `mip_toggle_service_user_lock` | Locks or unlocks a service user account |
+| `mip_list_service_users` | Lists MIP service users (pagination/search) |
+| `mip_create_service_user` | Creates a MIP user with roles (`developer`, `ui-user`, `monitoring`, `admin`, `service-user`) |
+| `mip_update_service_user` | Updates a user's email / password / roles |
+| `mip_delete_service_user` | Deletes a service user |
+| `mip_toggle_service_user_lock` | Locks / unlocks a service user account |
 
 ### Certificates & Keystores
 
 | Tool | Description |
 |---|---|
-| `mip_upload_certificate` | Uploads a certificate to MIP |
-| `mip_reupload_certificate` | Re-uploads / updates an existing certificate |
-| `mip_download_certificate` | Downloads a certificate by ID |
-| `mip_upload_key_store` | Uploads a keystore to MIP |
-| `mip_reupload_key_store` | Re-uploads / updates an existing keystore |
-| `mip_download_key_store` | Downloads a keystore by ID |
+| `mip_upload_certificate` / `mip_reupload_certificate` / `mip_download_certificate` | Upload / update / download a certificate |
+| `mip_upload_key_store` / `mip_reupload_key_store` / `mip_download_key_store` | Upload / update / download a keystore (`.jks`) |
 
 ### Monitoring & Logs
 
 | Tool | Description |
 |---|---|
-| `mip_download_logs` | Downloads flow monitoring logs (aggregated success/error/delivering **counts**) by date range |
-| `mip_get_flow_message_logs` | Per-message log list for a flow with millisecond timestamps — for hour-of-day / volume analysis. `type` is a single status (SUCCESS/ERROR/DELIVERING) |
-| `mip_get_message_counts` | Time-bucketed success/error totals (`timeType`: DAY / WEEK / MONTH / YEAR; no hourly) |
-| `mip_get_message_completion_times` | Per-flow message count and average completion time over a date range |
-| `mip_generate_monitoring_report` | Generates a multi-sheet **Excel (.xlsx)** volume report for a date/time window (hour distribution, Day×Hour & Flow×Hour heatmaps); saved to `MIP_DOWNLOAD_DIR` |
-| `mip_get_system_logs` | Downloads system log file by date range |
-| `mip_download_payload` | Downloads payload (in or out) for a given message ID |
-| `mip_download_log_details_payload` | Downloads node-level payload for a given message ID and node ID |
-| `mip_download_all_attachments` | Downloads all attachments for a message as a zip |
-| `mip_download_attachment_by_id` | Downloads a specific attachment by ID |
+| `mip_download_logs` | Aggregated success/error/delivering **counts** by date range |
+| `mip_get_flow_message_logs` | Per-message log list for a flow with ms timestamps (hour-of-day / volume analysis) |
+| `mip_get_message_counts` | Time-bucketed totals (`timeType`: DAY/WEEK/MONTH/YEAR) |
+| `mip_get_message_completion_times` | **Performance-Monitoring**: per-flow message count + completion time (optional filter/paging) |
+| `mip_generate_monitoring_report` | Multi-sheet **Excel** volume report (hour distribution, Day×Hour & Flow×Hour heatmaps) → `MIP_DOWNLOAD_DIR` |
+| `mip_search_messages` | **Search-Message**: find messages by the value a message-search-rule extracts (regex; empty = all) |
+| `mip_get_system_logs` | Downloads the system log file by date range |
+| `mip_download_payload` | Downloads in/out payload for a message ID |
+| `mip_download_log_details_payload` | Node-level payload for a message ID + node ID |
+| `mip_download_all_attachments` / `mip_download_attachment_by_id` | All attachments as zip / a single attachment by ID |
+
+### Integrations — Counters
+
+| Tool | Description |
+|---|---|
+| `mip_list_counters` / `mip_create_counter` / `mip_update_counter` / `mip_delete_counter` | CRUD for counters (number ranges): name, min/max/current value, length |
+
+### Integrations — Alerts (email) & SMTP
+
+| Tool | Description |
+|---|---|
+| `mip_list_alerts` / `mip_create_alert` / `mip_update_alert` / `mip_delete_alert` | CRUD for scheduled e-mail alerts (cron, recipients, flows, optional inline HTML template) |
+| `mip_get_alert_mail_config` / `mip_save_alert_mail_config` / `mip_delete_alert_mail_config` | Read / write / clear the SMTP settings alerts are sent through |
+
+### Integrations — Message Search Rules
+
+| Tool | Description |
+|---|---|
+| `mip_list_message_search_rules` / `mip_create_message_search_rule` / `mip_update_message_search_rule` / `mip_delete_message_search_rule` | CRUD for XPATH/JSON_PATH field-extraction rules (used by Search-Message). Enabled rules can't be deleted — disable first |
+
+### Integrations — Global Flow Configurations
+
+| Tool | Description |
+|---|---|
+| `mip_list_global_flow_configs` / `mip_create_global_flow_config` / `mip_update_global_flow_config` / `mip_delete_global_flow_config` | CRUD for shared exchange properties (scalar or JSON value, `enabled`, `appliedGlobally`). Read in flows as `${exchangeProperty.<key>}` |
+
+### Destinations — JDBC
+
+| Tool | Description |
+|---|---|
+| `mip_list_jdbc_destinations` / `mip_create_jdbc_destination` / `mip_update_jdbc_destination` / `mip_delete_jdbc_destination` | CRUD for JDBC destinations (PostgreSQL/MySQL/MSSQL/Oracle/MongoDB; `jdbcUrl` + user/password) |
+
+### Destinations — RFC (SAP)
+
+| Tool | Description |
+|---|---|
+| `mip_list_rfc_destinations` / `mip_create_rfc_destination` / `mip_update_rfc_destination` / `mip_delete_rfc_destination` | CRUD for SAP RFC destinations (ashost, sysnr, client, user, …) |
+
+### Destinations — MCP Servers
+
+| Tool | Description |
+|---|---|
+| `mip_list_mcp_servers` / `mip_create_mcp_server` / `mip_update_mcp_server` / `mip_delete_mcp_server` | CRUD for external MCP servers MIP connects to (`serverConfigJson`, `authType`) |
+| `mip_sync_mcp_server` | Connects to the MCP server and refreshes its tools (SYNCED/FAILED + count) |
+| `mip_list_mcp_server_tools` | Lists the discovered tools with input/output schemas |
+
+### Destinations — OFTP2
+
+| Tool | Description |
+|---|---|
+| `mip_list_oftp2_connections` / `mip_create_oftp2_connection` / `mip_update_oftp2_connection` / `mip_delete_oftp2_connection` | CRUD for OFTP2 connections (own/partner SSID·SFID·password, virtual file name, flags; **requires** a partner certificate + own keystore ID) |
+
+### Editors
+
+| Tool | Description |
+|---|---|
+| `mip_execute_groovy_script` | Runs a Groovy script against an input body/headers/properties (script signature uses `ScriptExchangeDTO`) |
+| `mip_execute_xslt_transform` | Applies an XSLT stylesheet to XML input and returns the result |
+
+### Management — System Health & Connectivity
+
+| Tool | Description |
+|---|---|
+| `mip_get_system_health` | Per-pod CPU / memory (MB) / inflight exchanges (read-only) |
+| `mip_generate_system_health_report` | Samples health N times → standard **Markdown** report (min/avg/max + OK/UYARI) |
+| `mip_generate_system_health_excel` | Same, as a fixed-layout **Excel (.xlsx)** (Ozet + Ornekler sheets) → `MIP_DOWNLOAD_DIR` |
+| `mip_test_connectivity` | Tests reaching a `host:port` from the MIP backend (non-destructive) |
+
+### Management — Alert Configurations
+
+| Tool | Description |
+|---|---|
+| `mip_list_alert_config_emails` / `mip_add_alert_config_email` / `mip_remove_alert_config_email` | Manage system-health alert mail receivers |
+| `mip_get_alert_rules` / `mip_update_alert_rules` | Read / merge-update per-component thresholds (CPU/RAM/disk %, response ms, …) |
+| `mip_get_cron_frequency` / `mip_update_cron_frequency` | Read / merge-update per-component health-check cron |
+
+### Management — License (read-only)
+
+| Tool | Description |
+|---|---|
+| `mip_get_license_detail` | License detail (customer, type, dates, key; sensitive data server-masked) |
+| `mip_check_license` | License validity (`valid`, dates, features) |
 
 ## Example Prompts
 
 Once connected, you can interact with MIP using natural language:
 
+**Flows & SOAP**
 ```
-Create a package called P_MY_PACKAGE and a flow called F_MY_FLOW.
-The flow should receive HTTP POST requests, call an external REST API, convert the JSON response to XML, and return it.
+Get the flow schema, then create a package P_MY_PACKAGE and a flow F_MY_FLOW that receives
+HTTP POST, calls an external REST API, converts the JSON response to XML, and returns it.
 ```
-
 ```
-Export all flows in package P_MY_PACKAGE to a zip file.
-```
-
-```
-Show me the error logs for the last 7 days.
+Generate a WSDL named OrderService with operations CreateOrder (Customer, Amount) and
+GetOrderStatus (OrderId), upload it to flow F_ORDER_SOAP, and wire a SOAP Start at /orders.
 ```
 
+**Deploy & monitoring**
 ```
-Upload the Groovy script at C:/scripts/transform.groovy to flow F_MY_FLOW.
+Deploy F_MY_FLOW, set its log level to All Steps, and show me the error counts for the last 7 days.
 ```
-
 ```
-Create a BASIC credential named PARTNER_API with username and password, then use it in flow F_MY_FLOW.
-```
-
-```
-Create a service user john.doe@company.com with developer and ui-user roles.
+Generate a monitoring Excel report for 2026-08-01 to 2026-08-07 and tell me the quietest hour.
 ```
 
+**Integrations**
 ```
-Generate a WSDL named OrderService with operations CreateOrder (taking Customer, Amount) and GetOrderStatus (taking OrderId), upload it to flow F_ORDER_SOAP, and create a SOAP Start flow that exposes it at /orders.
+Create a counter invoice_no from 1 to 999999 with length 6.
+```
+```
+Create a daily 08:00 e-mail alert for flow F_ORDER on ops@acme.com, then set up the SMTP config
+using credential smtp_cred (Office 365).
+```
+```
+Add a message search rule "UserName" (XPATH //*[local-name()='UserName']/text()) on F_SAP_TO_ICE,
+enable it, then search that flow for messages where UserName = test_user in the last 24h.
+```
+```
+Create a global flow config isSalesOrderReportFileExists = No, applied globally.
 ```
 
+**Destinations**
 ```
-I have a WSDL at C:/wsdl/partner-service.wsdl. Upload it to flow F_PARTNER_SOAP and wire the SOAP Start step to use the first binding/operation defined in the file.
+Create a PostgreSQL JDBC destination demo_pg (jdbc:postgresql://host:5432/db) with user pg/pass.
+```
+```
+Add an MCP server pointing to https://mcp.deepwiki.com/sse, sync it, and list its tools.
+```
+
+**Editors**
+```
+Run this Groovy against input "hello": uppercase the body and set header Processed=true.
+```
+```
+Transform this order XML with an XSLT that outputs a summary sorted by amount descending.
+```
+
+**Management**
+```
+Generate a System Health Excel report.
+```
+```
+Test connectivity from MIP to 10.0.0.5:1433.
+```
+```
+Show the license detail and whether it's still valid.
 ```
 
 ## SOAP Sender flow workflow
