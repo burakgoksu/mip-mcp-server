@@ -2,6 +2,13 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.26 — License info (read-only)
+
+Two **read-only** License tools (GET only — no save/write is exposed, by design, on the live customer server):
+
+- **`mip_get_license_detail`** — `GET /api/license/detail`: customerName, licenseType, status, start/end dates, licenseKey, enabledModules, contactMails (the sensitive `licenseKeyData` is masked by the server).
+- **`mip_check_license`** — `GET /api/license/check`: `valid`, start/end dates, features.
+
 ## What's new in 1.0.25 — Alert Configurations (Management)
 
 The Alert Configurations screen turned out to be reachable after all — it lives behind the `/healthcheck-service` path prefix (`VITE_MAIN_SYSTEM_HEALTH_URL`), not the main API base, which is why it first looked like a 404. Seven tools:
