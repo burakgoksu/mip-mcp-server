@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.17 — Flow schema KB: configs as exchange properties
+
+Documentation added to the embedded flow schema (`mip_get_flow_schema` → `expressionLanguage`) so the AI knows global/local flow configurations exist and how flows consume them: a config surfaces at runtime as an **exchange property** keyed by `configKey` — read via `${exchangeProperty.<configKey>}` (Simple) or `exchange.getProperty('<configKey>')` (Groovy), set/overridden via `processSetContext` or Groovy. Guidance: don't hardcode environment/flow-varying constants — read them from a config key. No new tool; this improves generated flows.
+
 ## What's new in 1.0.16 — Global Flow Configurations (Integrations)
 
 The last Integrations tool group. Global flow configurations (shared exchange properties, backed by `/api/global-flow-configurations`) are now fully manageable — completing full MCP coverage of the Operations > Integrations menu:

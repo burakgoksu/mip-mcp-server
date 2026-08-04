@@ -390,7 +390,8 @@ const MIP_FLOW_SCHEMA = {
     },
     xpath:   "conditionType/propertyType:'XPath' -> XML body uzerinde: /Root/Item/Status  veya  //status  veya  local-name(/*) (kok eleman adi).",
     jsonPath:"conditionType/propertyType:'JSONPath' -> JSON body uzerinde: $.field.subfield  veya  $.items[0].id",
-    commonPattern: "TIPIK AKIS: processScript veya processSetContext ile body'den bir deger cikarilip exchangeProperty'ye yazilir (orn 'route'), sonra processCondition ${exchangeProperty.route}=='...' ile dallanir. Gercek flow'larda en yaygin desen budur — condition dogrudan body parse etmez, once property'ye alinir."
+    commonPattern: "TIPIK AKIS: processScript veya processSetContext ile body'den bir deger cikarilip exchangeProperty'ye yazilir (orn 'route'), sonra processCondition ${exchangeProperty.route}=='...' ile dallanir. Gercek flow'larda en yaygin desen budur — condition dogrudan body parse etmez, once property'ye alinir.",
+    flowConfigurations: "GLOBAL/LOCAL FLOW CONFIG'LER: MIP'te 'Global Flow Configurations' (Operations menusu, mip_*_global_flow_config tool'lari) ve flow bazli 'Configure Flow' ile tanimlanan config'ler, flow calisirken configKey adiyla EXCHANGE PROPERTY olarak sunulur. Groovy/Simple icinde okunur: Simple -> ${exchangeProperty.<configKey>} , Groovy script -> exchange.getProperty('<configKey>'); deger atamak/override etmek icin processSetContext (propertyName:'<configKey>') veya Groovy exchange.setProperty('<configKey>', deger) kullanilir. Ortamlar/flow'lar arasi degisen sabitleri (bayrak, esik, mail adresi vb.) HARDCODE ETME — config anahtarindan exchangeProperty olarak oku. configValue skaler veya JSON olabilir; JSON ise parse edilmis obje olarak gelir. Global config appliedGlobally ise tum flow'lara otomatik uygulanir; flow bazli deger override edilebilir veya flow'a ozel (local) config eklenebilir."
   },
 
   flowTemplates: {
