@@ -2,6 +2,16 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.24 — Management: System Health & Test Connectivity
+
+Safe, read/diagnostic Management tools (destructive areas deliberately untouched — see note):
+
+- **`mip_get_system_health`** — `GET /api/backend-system-statics`: per-pod `cpuLoad` (0-1), `memoryLoad` (MB), `inflightExchanges`. Read-only.
+- **`mip_generate_system_health_report`** — samples the health endpoint N times (default 4 × 800ms) and produces a Markdown report: per-pod CPU%, memory (MB/GB), and inflight min/avg/max with OK/warning thresholds. (This instance has no historical health data, so the report is based on the short sampling window.)
+- **`mip_test_connectivity`** — `PUT /api/test-connectivity` with `{host, port}`: MIP tests reaching the target (non-destructive TCP/HTTP handshake), returns `{status, resultCode, duration, responsePayload}`.
+
+**System Logs** is already covered by `mip_get_system_logs`. **Not built:** Database Management, DB Analysis & Backup, and License Settings are intentionally left untouched on the live customer server (irreversible risk). Alert Configurations, health-score, and backup/restore live on a separate `VITE_MAIN_SYSTEM_HEALTH_URL` service that isn't configured on this instance (they 404), so they aren't exposed.
+
 ## What's new in 1.0.23 — Editors: run Groovy & XSLT
 
 The execute-style Editors now work through the MCP (the Groovy editor previously appeared broken):
