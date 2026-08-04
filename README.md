@@ -2,6 +2,17 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.18 — JDBC Destinations (Destinations)
+
+First of the Destinations tool groups. JDBC destinations (backed by `/api/databases`) are now manageable:
+
+- **`mip_list_jdbc_destinations`** — list destinations (name, driver, url, username), paginated, filterable; password is hidden.
+- **`mip_create_jdbc_destination`** — create with `databaseName` + `driver` (PostgreSQL/MySQL/MSSQL/Oracle/MongoDB) + `jdbcUrl` + `userName`/`password` (required except for MongoDB).
+- **`mip_update_jdbc_destination`** — update by id; merges against the existing record. The API returns different field names (`databaseDriver`/`databaseUrl`/`databaseUsername`/`databasePassword`, password base64) than it accepts — the tool maps them back and preserves the password when omitted.
+- **`mip_delete_jdbc_destination`** — delete by id.
+
+Create → filter → update (merge, password preserved) → delete verified end-to-end against a live MIP instance.
+
 ## What's new in 1.0.17 — Flow schema KB: configs as exchange properties
 
 Documentation added to the embedded flow schema (`mip_get_flow_schema` → `expressionLanguage`) so the AI knows global/local flow configurations exist and how flows consume them: a config surfaces at runtime as an **exchange property** keyed by `configKey` — read via `${exchangeProperty.<configKey>}` (Simple) or `exchange.getProperty('<configKey>')` (Groovy), set/overridden via `processSetContext` or Groovy. Guidance: don't hardcode environment/flow-varying constants — read them from a config key. No new tool; this improves generated flows.
