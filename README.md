@@ -2,6 +2,17 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to manage MIP flows, packages, resources, credentials, service users, certificates, keystores, mappings, and logs through natural language.
 
+## What's new in 1.0.13 — Message Search Rules (Integrations)
+
+Third Integrations tool group. Message search rules (backed by `/api/message-search-rules`) extract a field from a flow's messages via XPATH/JSON_PATH so it can be searched/shown in Monitoring:
+
+- **`mip_list_message_search_rules`** — list rules (flowId, name, type, value, isEnabled), paginated, filter across all fields.
+- **`mip_create_message_search_rule`** — create a rule: `flowId` + `name` + `type` (`XPATH`|`JSON_PATH`) + `value` (the expression) + optional `isEnabled`.
+- **`mip_update_message_search_rule`** — update by id (including enabling/disabling); merges against the existing record.
+- **`mip_delete_message_search_rule`** — delete by id. An **enabled** rule can't be deleted (MIP returns 409); the tool surfaces a clear hint to disable it first.
+
+Create → filter → update → delete verified end-to-end against a live MIP instance.
+
 ## Fixed in 1.0.12 — Multi-line alert templates
 
 MIP's `alertTemplate` field rejects any literal line break (`\n`/`\r\n`) with a misleading *"alertTemplate: Cannot be blank"* error, so pasting a normal multi-line HTML template failed. `mip_create_alert` / `mip_update_alert` now normalize newlines to spaces before sending — HTML is whitespace-insensitive between tags, so rendering is unchanged.
