@@ -1,8 +1,30 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **91 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **95 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## Refactor in 1.1.0 — modularized (behavior-preserving)
+
+`index.js` had grown to ~4200 lines. It's now a **64-line entry point** (dispatch + MCP server wiring); everything else lives under `src/`. No tool, description, schema, return value, or error format changed — this is purely structural.
+
+**Project structure**
+
+```
+index.js              thin entry: getToken→authHeaders→HANDLERS[name](args, headers); MCP Server + stdio connect
+src/
+  config.js           env + BASE_URL / HEALTH_BASE / DOWNLOAD_DIR (+ validation)
+  auth.js             getToken / authHeaders (private token cache)
+  util.js             parseConfigValue / saveFile / extractFilename / ensureDownloadDir
+  xlsx.js             buildSystemHealthXlsx / buildMonitoringReportXlsx (OOXML via jszip)
+  wsdl.js             generateWsdl / ensureElementFormDefaultQualified
+  kb/flowSchema.js    MIP_FLOW_SCHEMA (the flow KB) + validateFlow
+  registry.js         imports every tool module → exports { tools[], handlers{} }
+  tools/*.js          one module per domain (20): each exports { tools, handlers };
+                      handlers are `(args, headers) => …`
+```
+
+Adding a tool is now a one-file change (edit the domain module) + one line in `registry.js`. The refactor was done in small verified steps — after each, a harness re-imported the registry, checked the tool set was identical (95), ran offline unit tests for the extracted pure functions, and made read-only live calls; plus a JSON-RPC `tools/list` boot check.
 
 ## What's new in 1.0.28 — Danger-zone safety note in the flow schema KB
 
@@ -236,7 +258,7 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**91 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**95 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 

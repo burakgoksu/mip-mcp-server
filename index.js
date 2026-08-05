@@ -1,49 +1,29 @@
 #!/usr/bin/env node
 
+// ─── MIP MCP Server — ince giriş ──────────────────────────────────────────────
+// Tool tanımları ve handler'ları src/tools/* modüllerinde; src/registry.js hepsini
+// TOOLS (dizi) + HANDLERS (obje) olarak toplar. Bu dosya yalnızca: dispatch +
+// MCP server kurulumu + stdio bağlantısı. Paylaşılan altyapı: src/config, src/auth,
+// src/util, src/xlsx, src/wsdl, src/kb/flowSchema.
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import axios from "axios";
-import FormData from "form-data";
-import fs from "fs";
+import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
-import os from "os";
 import { fileURLToPath } from "url";
 
-// ─── Paylaşılan modüller (config/auth/util) ───────────────────────────────────
-import { BASE_URL, DOWNLOAD_DIR, HEALTH_BASE } from "./src/config.js";
 import { getToken, authHeaders } from "./src/auth.js";
-import { parseConfigValue, ensureDownloadDir, saveFile, extractFilename } from "./src/util.js";
+import { tools as TOOLS, handlers as HANDLERS } from "./src/registry.js";
 
-// ─── Ağır modüller (xlsx / wsdl / flow-schema KB) ─────────────────────────────
-import { buildSystemHealthXlsx, buildMonitoringReportXlsx } from "./src/xlsx.js";
-import { ensureElementFormDefaultQualified, generateWsdl } from "./src/wsdl.js";
-import { MIP_FLOW_SCHEMA, validateFlow } from "./src/kb/flowSchema.js";
-// Modüler tool kayıtları (domain'ler taşındıkça dolar). Geçiş boyunca aşağıdaki
-// LEGACY_TOOLS + switch ile birlikte çalışır.
-import { tools as registryTools, handlers as HANDLERS } from "./src/registry.js";
-// ─── Tool Definitions (henüz modüle taşınmamış olanlar) ───────────────────────
-const LEGACY_TOOLS = [
-];
-
-// Modül registry'sinden gelen tool'lar + henüz taşınmamış legacy tool'lar.
-const TOOLS = [...registryTools, ...LEGACY_TOOLS];
-
-// ─── Tool Handlers ────────────────────────────────────────────────────────────
+// ─── Dispatch ─────────────────────────────────────────────────────────────────
+// Her istekte token tazele + auth header üret; tool'u registry'den bul ve çağır.
+// Handler'lar (args, headers) alır, string döner veya throw eder; hata formatı
+// aşağıdaki CallTool wrapper'ında merkezileştirilmiştir.
 async function handleTool(name, args) {
   await getToken();
   const headers = authHeaders();
-
-  // Modüle taşınmış tool'lar registry'den; kalanlar aşağıdaki switch'ten.
-  if (HANDLERS[name]) return HANDLERS[name](args, headers);
-
-  switch (name) {
-    default:
-      throw new Error(`Bilinmeyen tool: ${name}`);
-  }
+  const handler = HANDLERS[name];
+  if (!handler) throw new Error(`Bilinmeyen tool: ${name}`);
+  return handler(args, headers);
 }
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
