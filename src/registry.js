@@ -5,9 +5,17 @@
 
 import license from "./tools/license.js";
 import counters from "./tools/counters.js";
+import globalFlowConfigs from "./tools/globalFlowConfigs.js";
+import searchMessage from "./tools/searchMessage.js";
+import messageSearchRules from "./tools/messageSearchRules.js";
+import alerts from "./tools/alerts.js";
 
 const MODULES = [
   counters,
+  globalFlowConfigs,
+  searchMessage,
+  messageSearchRules,
+  alerts,
   license,
 ];
 
