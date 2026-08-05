@@ -4,8 +4,10 @@
 // (Modülerleştirme sürerken domain'ler buraya taşındıkça dolacak.)
 
 import license from "./tools/license.js";
+import counters from "./tools/counters.js";
 
 const MODULES = [
+  counters,
   license,
 ];
 
