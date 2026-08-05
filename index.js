@@ -11,6 +11,7 @@ import FormData from "form-data";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
 
 // ─── Config (env variables) ───────────────────────────────────────────────────
 const BASE_URL = process.env.MIP_BASE_URL;
@@ -4217,5 +4218,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+// Test/registry import'u server'i baslatmasin diye: yalnizca dosya DOGRUDAN
+// calistirilinca (entry) stdio transport'a baglan. `export`'lar dogrulama
+// harness'inin TOOLS + handleTool'a erisebilmesi icin.
+export { TOOLS, handleTool };
+
+const selfPath = fileURLToPath(import.meta.url);
+const entryArg = process.argv[1] ? path.resolve(process.argv[1]) : "";
+const isEntry = entryArg && (entryArg === selfPath || entryArg.toLowerCase() === selfPath.toLowerCase());
+if (isEntry) {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}

@@ -6,3 +6,11 @@ node_modules/
 Thumbs.db
 .vscode/
 .idea/
+
+# Credentials — never commit
+.mcp.json
+
+# Refactor/debug temp files
+_verify.mjs
+_baseline.json
+_*.mjs
