@@ -5,6 +5,9 @@
 
 import license from "./tools/license.js";
 import counters from "./tools/counters.js";
+import alertConfig from "./tools/alertConfig.js";
+import managementHealth from "./tools/managementHealth.js";
+import editors from "./tools/editors.js";
 import oftp2 from "./tools/oftp2.js";
 import mcpServers from "./tools/mcpServers.js";
 import destinationsRfc from "./tools/destinationsRfc.js";
@@ -16,6 +19,9 @@ import alerts from "./tools/alerts.js";
 
 const MODULES = [
   counters,
+  alertConfig,
+  managementHealth,
+  editors,
   oftp2,
   mcpServers,
   destinationsRfc,
