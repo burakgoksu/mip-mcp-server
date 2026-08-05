@@ -5,6 +5,7 @@
 
 import license from "./tools/license.js";
 import queues from "./tools/queues.js";
+import ediSchemas from "./tools/ediSchemas.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -27,6 +28,7 @@ import alerts from "./tools/alerts.js";
 
 const MODULES = [
   queues,
+  ediSchemas,
   counters,
   alertConfig,
   managementHealth,

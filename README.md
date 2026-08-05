@@ -1,8 +1,19 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **98 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **103 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.2 — EDI Schemas
+
+**Operations > Edi-Schemas** — manage EDI schema resources (XSD/XSLT for EDIFACT/X12/etc.). Backed by `/api/edi-schemas`:
+
+- **`mip_list_edi_schemas`** — list (resourceName, ediType, resourceType, dataFormat, version), paginated + filter.
+- **`mip_upload_edi_schema`** — `PUT /api/edi-schemas/upload` (multipart: `file` + `data` JSON). `ediType` ∈ EDIFACT/EANCOM/ANSI_X12/ODETTE/VDA/TRADACOMS, `resourceType` xsd/xslt, `dataFormat` XML.
+- **`mip_reupload_edi_schema`** — update by id (`PUT /api/edi-schemas/{id}/upload`).
+- **`mip_delete_edi_schema`** / **`mip_download_edi_schema`** — delete / download by id.
+
+Verified live end-to-end (upload → list → delete round-trip; 103 tools).
 
 ## What's new in 1.1.1 — Queues (Kafka topics)
 
@@ -268,7 +279,7 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**98 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**103 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 
