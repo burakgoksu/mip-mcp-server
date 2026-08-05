@@ -1,8 +1,18 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **95 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **98 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.1 — Queues (Kafka topics)
+
+New in MIP v1.16.0-rc.5: **Operations > Queues** — Kafka topic monitoring. First feature added on the new modular structure (one module + one registry line):
+
+- **`mip_list_kafka_topics`** — `GET /api/queues/kafka/topics`: topics with cluster (bootstrapServers), status (HEALTHY/DOWN), producer/consumer counts, `inMip`. `scope` `MIP` (topics used by MIP flows) or `ALL`; paginated + filter.
+- **`mip_get_kafka_topic_detail`** — `GET /api/queues/kafka/topics/detail`: cluster brokers, partitions, replication, retention/cleanup/compression, plus the MIP producer/consumer **flows** using the topic (`bootstrapServers` + `topic` required, `windowMinutes` default 60).
+- **`mip_update_kafka_topic`** — `PUT /api/queues/kafka/topics` with `{bootstrapServers, topic, changes}` — modifies real Kafka topic config (retention, etc.); only on `editable` topics.
+
+Also **robustness**: `BASE_URL` now strips a trailing slash, so `MIP_BASE_URL` written as `http://host/` no longer produces `//api/...`. Verified live on the new instance (98 tools; list + detail return real data).
 
 ## Refactor in 1.1.0 — modularized (behavior-preserving)
 
@@ -258,7 +268,7 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**95 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**98 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 

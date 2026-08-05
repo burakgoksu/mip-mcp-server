@@ -4,6 +4,7 @@
 // (Modülerleştirme sürerken domain'ler buraya taşındıkça dolacak.)
 
 import license from "./tools/license.js";
+import queues from "./tools/queues.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -25,6 +26,7 @@ import messageSearchRules from "./tools/messageSearchRules.js";
 import alerts from "./tools/alerts.js";
 
 const MODULES = [
+  queues,
   counters,
   alertConfig,
   managementHealth,

@@ -2,7 +2,9 @@
 import path from "path";
 import os from "os";
 
-export const BASE_URL = process.env.MIP_BASE_URL;
+// Sondaki slash'i temizle ki `${BASE_URL}/api/...` çift-slash üretmesin
+// (ör. env "http://host/" verilmişse).
+export const BASE_URL = (process.env.MIP_BASE_URL || "").replace(/\/+$/, "");
 export const MIP_USERNAME = process.env.MIP_USERNAME;
 export const MIP_PASSWORD = process.env.MIP_PASSWORD;
 export const DOWNLOAD_DIR = process.env.MIP_DOWNLOAD_DIR || path.join(os.homedir(), "mip-downloads");
