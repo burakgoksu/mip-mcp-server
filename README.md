@@ -1,8 +1,28 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **123 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **131 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.5 — RFC Explorer + SOA Services & WSDL
+
+Two more Sap-Connections sub-tools:
+
+**RFC Explorer** (`/api/sap-connections/*`) — inspect a SAP system's remote functions. Connection is either a saved RFC destination (`destinationId`) or inline `ashost`/`sysnr`/`client`/`user`/`password`/`lang`:
+
+- **`mip_test_sap_connection`** — RFC handshake (`connected: true/false`).
+- **`mip_browse_rfcs`** — search RFC/BAPI functions by SAP mask. **`*` is the wildcard and is required** — `STFC*` matches, bare `STFC` returns nothing.
+- **`mip_get_rfc_interface`** — a function's import/export/changing parameters, tables and structure fields.
+- **`mip_list_imported_sap_objects`** — SAP objects already materialized into MIP for a destination.
+
+**SOA Services** (`/api/soa-connections/{id}/*`, `/api/soa-services/{id}/wsdl`):
+
+- **`mip_list_soa_services`** — SOAP services already imported for a SOA connection.
+- **`mip_list_available_soa_services`** — services discoverable on the SAP system (live).
+- **`mip_import_soa_services`** — import all (or a named subset) into MIP.
+- **`mip_get_soa_service_wsdl`** — a service's WSDL (`refresh=true` re-fetches from SAP).
+
+Verified live against a real S/4HANA destination (`test`/`browse STFC*`/`rfc-interface STFC_CONNECTION`/`soa services`/`wsdl` all returned real data). The existing `mip_*_rfc_destination` tools are untouched.
 
 ## What's new in 1.1.4 — XI Queues (SAP XI/PI messages)
 

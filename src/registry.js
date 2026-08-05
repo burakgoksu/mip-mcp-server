@@ -8,6 +8,8 @@ import queues from "./tools/queues.js";
 import ediSchemas from "./tools/ediSchemas.js";
 import sapConnections from "./tools/sapConnections.js";
 import xiQueues from "./tools/xiQueues.js";
+import rfcExplorer from "./tools/rfcExplorer.js";
+import soaServices from "./tools/soaServices.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -33,6 +35,8 @@ const MODULES = [
   ediSchemas,
   sapConnections,
   xiQueues,
+  rfcExplorer,
+  soaServices,
   counters,
   alertConfig,
   managementHealth,
