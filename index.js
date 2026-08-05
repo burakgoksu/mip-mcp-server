@@ -1626,20 +1626,6 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
     },
   },
 
-  // ─── License (Operations > License Settings) — YALNIZCA OKUMA (GET) ────────────
-  // GÜVENLIK: License için SADECE salt-okunur GET. save/write ASLA.
-  {
-    name: "mip_get_license_detail",
-    description:
-      "License Settings (SALT-OKUNUR): lisans detayını döner — customerName, licenseType, status, startDate/endDate, licenseKey, enabledModules, contactMails vb. (Hassas licenseKeyData sunucu tarafından maskelenir.) Yalnızca GET; hiçbir değişiklik yapmaz.",
-    inputSchema: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "mip_check_license",
-    description:
-      "License Settings (SALT-OKUNUR): lisans geçerlilik durumunu döner — valid (bool), startDate, endDate, features. Yalnızca GET.",
-    inputSchema: { type: "object", properties: {}, required: [] },
-  },
 ];
 
 // Modül registry'sinden gelen tool'lar + henüz taşınmamış legacy tool'lar.
@@ -3190,17 +3176,6 @@ ${wsdlContent}`;
         headers: { ...headers, "Content-Type": "application/json" },
       });
       return `Cron frequency güncellendi (${args.crons.map((c) => c.componentName).join(", ")}): ${JSON.stringify(res.data)}`;
-    }
-
-    // ─── License — YALNIZCA GET (salt-okunur) ───────────────────────────────────
-    case "mip_get_license_detail": {
-      const res = await axios.get(`${BASE_URL}/api/license/detail`, { headers });
-      return JSON.stringify(res.data, null, 2);
-    }
-
-    case "mip_check_license": {
-      const res = await axios.get(`${BASE_URL}/api/license/check`, { headers });
-      return JSON.stringify(res.data, null, 2);
     }
 
     default:

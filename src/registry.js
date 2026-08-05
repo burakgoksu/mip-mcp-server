@@ -3,8 +3,10 @@
 // export eder. Yeni domain eklerken: yukarıya import ekle + MODULES dizisine koy.
 // (Modülerleştirme sürerken domain'ler buraya taşındıkça dolacak.)
 
+import license from "./tools/license.js";
+
 const MODULES = [
-  // örn: (import edildikçe) counters, editors, license, ...
+  license,
 ];
 
 export const tools = MODULES.flatMap((m) => m.tools);
