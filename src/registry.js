@@ -4,6 +4,9 @@
 // (Modülerleştirme sürerken domain'ler buraya taşındıkça dolacak.)
 
 import license from "./tools/license.js";
+import certsKeystores from "./tools/certsKeystores.js";
+import mappings from "./tools/mappings.js";
+import monitoring from "./tools/monitoring.js";
 import serviceUsers from "./tools/serviceUsers.js";
 import credentials from "./tools/credentials.js";
 import counters from "./tools/counters.js";
@@ -33,6 +36,9 @@ const MODULES = [
   messageSearchRules,
   alerts,
   license,
+  certsKeystores,
+  mappings,
+  monitoring,
   serviceUsers,
   credentials,
 ];
