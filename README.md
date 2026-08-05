@@ -1,8 +1,19 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **118 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **123 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.4 — XI Queues (SAP XI/PI messages)
+
+Completes the Sap-Connections > XI Proxy tab — the **Queues** sub-tab (`/api/xi-queues`), for monitoring and unblocking SAP XI/PI messages:
+
+- **`mip_list_xi_queue_messages`** — paginated list, filter by `status`/`qos`/`queueId`/`interfaceName`/`from`/`to`.
+- **`mip_get_xi_queue_summary`** — `/summary`: definedQueues, blockedQueues, status counts.
+- **`mip_get_xi_queue_payload`** — message payload by id.
+- **`mip_retry_xi_queue_message`** / **`mip_cancel_xi_queue_message`** — `PATCH /{id}/retry` · `/cancel` to requeue or cancel a stuck message.
+
+List + summary verified live (currently 0 messages on the instance); retry/cancel/payload built to the saga contracts.
 
 ## What's new in 1.1.3 — SAP Connections (SOA / PO / XI Systems)
 
@@ -289,7 +300,7 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**118 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**123 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 

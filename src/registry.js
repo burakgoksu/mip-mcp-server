@@ -7,6 +7,7 @@ import license from "./tools/license.js";
 import queues from "./tools/queues.js";
 import ediSchemas from "./tools/ediSchemas.js";
 import sapConnections from "./tools/sapConnections.js";
+import xiQueues from "./tools/xiQueues.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -31,6 +32,7 @@ const MODULES = [
   queues,
   ediSchemas,
   sapConnections,
+  xiQueues,
   counters,
   alertConfig,
   managementHealth,
