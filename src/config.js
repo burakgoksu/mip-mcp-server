@@ -1,0 +1,18 @@
+// ─── Config (env variables) ───────────────────────────────────────────────────
+import path from "path";
+import os from "os";
+
+export const BASE_URL = process.env.MIP_BASE_URL;
+export const MIP_USERNAME = process.env.MIP_USERNAME;
+export const MIP_PASSWORD = process.env.MIP_PASSWORD;
+export const DOWNLOAD_DIR = process.env.MIP_DOWNLOAD_DIR || path.join(os.homedir(), "mip-downloads");
+// System-health / alert-configuration servisi ayrı bir path prefix'te (frontend:
+// VITE_MAIN_SYSTEM_HEALTH_URL). ONPREM'de "/healthcheck-service"; env ile override edilebilir.
+export const HEALTH_BASE = `${BASE_URL}${process.env.MIP_HEALTH_PATH || "/healthcheck-service"}`;
+
+if (!BASE_URL || !MIP_USERNAME || !MIP_PASSWORD) {
+  process.stderr.write(
+    "Hata: MIP_BASE_URL, MIP_USERNAME ve MIP_PASSWORD env değişkenleri settings.json içinde tanımlanmalıdır.\n"
+  );
+  process.exit(1);
+}

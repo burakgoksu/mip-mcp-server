@@ -13,73 +13,10 @@ import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
 
-// ─── Config (env variables) ───────────────────────────────────────────────────
-const BASE_URL = process.env.MIP_BASE_URL;
-const MIP_USERNAME = process.env.MIP_USERNAME;
-const MIP_PASSWORD = process.env.MIP_PASSWORD;
-const DOWNLOAD_DIR = process.env.MIP_DOWNLOAD_DIR || path.join(os.homedir(), "mip-downloads");
-// System-health / alert-configuration servisi ayrı bir path prefix'te (frontend:
-// VITE_MAIN_SYSTEM_HEALTH_URL). ONPREM'de "/healthcheck-service"; env ile override edilebilir.
-const HEALTH_BASE = `${BASE_URL}${process.env.MIP_HEALTH_PATH || "/healthcheck-service"}`;
-
-if (!BASE_URL || !MIP_USERNAME || !MIP_PASSWORD) {
-  process.stderr.write(
-    "Hata: MIP_BASE_URL, MIP_USERNAME ve MIP_PASSWORD env değişkenleri settings.json içinde tanımlanmalıdır.\n"
-  );
-  process.exit(1);
-}
-
-// ─── Token Management ─────────────────────────────────────────────────────────
-let tokenState = { token: null, expiry: 0 };
-
-async function getToken() {
-  if (tokenState.token && Date.now() < tokenState.expiry - 30000) {
-    return tokenState.token;
-  }
-  const res = await axios.post(`${BASE_URL}/api/auth/sign-in`, {
-    username: MIP_USERNAME,
-    password: MIP_PASSWORD,
-  });
-  tokenState.token = res.data.token;
-  const expiresIn = res.data.expires_in ?? 3600;
-  tokenState.expiry = Date.now() + expiresIn * 1000;
-  return tokenState.token;
-}
-
-function authHeaders() {
-  return { Authorization: `Bearer ${tokenState.token}` };
-}
-
-// Global flow config değeri: geçerli JSON metni ise parse et (obje/sayı/bool),
-// değilse ham string bırak. MIP UI ile aynı davranış (Value: scalar or JSON).
-function parseConfigValue(v) {
-  if (typeof v !== "string") return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return v;
-  }
-}
-
-// ─── Helper: save binary response to file ────────────────────────────────────
-function ensureDownloadDir() {
-  if (!fs.existsSync(DOWNLOAD_DIR)) {
-    fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
-  }
-}
-
-function saveFile(buffer, filename) {
-  ensureDownloadDir();
-  const filePath = path.join(DOWNLOAD_DIR, filename);
-  fs.writeFileSync(filePath, buffer);
-  return filePath;
-}
-
-function extractFilename(headers, fallback) {
-  const cd = headers["content-disposition"] || "";
-  const match = cd.match(/filename="?([^";\n]+)"?/);
-  return match ? match[1].trim() : fallback;
-}
+// ─── Paylaşılan modüller (config/auth/util) ───────────────────────────────────
+import { BASE_URL, DOWNLOAD_DIR, HEALTH_BASE } from "./src/config.js";
+import { getToken, authHeaders } from "./src/auth.js";
+import { parseConfigValue, ensureDownloadDir, saveFile, extractFilename } from "./src/util.js";
 
 // ─── System Health Excel Builder (SABIT/STANDART şablon) ──────────────────────
 // pods: { podName -> {cpu:[], mem:[], inflight:[]} } ; sampleRows: [{sample,pod,cpu,mem,inflight}]
