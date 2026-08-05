@@ -1,8 +1,18 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **103 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **118 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.3 — SAP Connections (SOA / PO / XI Systems)
+
+In MIP v1.16.0-rc.5 the old RFC Destinations page became **Operations > Sap-Connections** with three connection types. The existing `mip_*_rfc_destination` tools (RFC tab, `/api/rfc-destinations`) are **left untouched**; these are added alongside:
+
+- **SOA** (`/api/soa-connections`) — `mip_list/create/update/delete_soa_connection` + `mip_set_soa_connection_enabled` (name, scheme, host, port, systemClient, wsilPath, credentialId).
+- **XI Proxy → PO Connections** (`/api/po-connections`) — `mip_list/create/update/delete_po_connection` + `mip_set_po_connection_enabled` (…, esrPath, credentialId).
+- **XI Proxy → Systems** (`/api/xi-systems`) — `mip_list/create/update/delete_xi_system` + `mip_test_xi_system` (name, businessSystem, businessParty, …, enginePath).
+
+Updates merge against the current record. List paths verified live (SOA/PO/XI all return real SYNCED connections; RFC tools confirmed still present). Create/update/delete/enable/test are built to the reverse-engineered saga contracts (not test-written against the customer's real SAP systems). The **XI Proxy → Queues** sub-tab (`/api/xi-queues`, message retry/cancel) is not built yet.
 
 ## What's new in 1.1.2 — EDI Schemas
 
@@ -279,7 +289,7 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**103 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**118 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 
