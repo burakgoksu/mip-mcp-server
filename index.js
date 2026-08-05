@@ -22,8 +22,11 @@ import { parseConfigValue, ensureDownloadDir, saveFile, extractFilename } from "
 import { buildSystemHealthXlsx, buildMonitoringReportXlsx } from "./src/xlsx.js";
 import { ensureElementFormDefaultQualified, generateWsdl } from "./src/wsdl.js";
 import { MIP_FLOW_SCHEMA, validateFlow } from "./src/kb/flowSchema.js";
-// ─── Tool Definitions ─────────────────────────────────────────────────────────
-const TOOLS = [
+// Modüler tool kayıtları (domain'ler taşındıkça dolar). Geçiş boyunca aşağıdaki
+// LEGACY_TOOLS + switch ile birlikte çalışır.
+import { tools as registryTools, handlers as HANDLERS } from "./src/registry.js";
+// ─── Tool Definitions (henüz modüle taşınmamış olanlar) ───────────────────────
+const LEGACY_TOOLS = [
   // ── Monitoring ──
   {
     name: "mip_download_logs",
@@ -1639,10 +1642,16 @@ Operation tanimlari: her operation icin request/response field listesi verilmeli
   },
 ];
 
+// Modül registry'sinden gelen tool'lar + henüz taşınmamış legacy tool'lar.
+const TOOLS = [...registryTools, ...LEGACY_TOOLS];
+
 // ─── Tool Handlers ────────────────────────────────────────────────────────────
 async function handleTool(name, args) {
   await getToken();
   const headers = authHeaders();
+
+  // Modüle taşınmış tool'lar registry'den; kalanlar aşağıdaki switch'ten.
+  if (HANDLERS[name]) return HANDLERS[name](args, headers);
 
   switch (name) {
     // ── Monitoring ──────────────────────────────────────────────────────────
