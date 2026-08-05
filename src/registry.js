@@ -4,6 +4,8 @@
 // (Modülerleştirme sürerken domain'ler buraya taşındıkça dolacak.)
 
 import license from "./tools/license.js";
+import serviceUsers from "./tools/serviceUsers.js";
+import credentials from "./tools/credentials.js";
 import counters from "./tools/counters.js";
 import alertConfig from "./tools/alertConfig.js";
 import managementHealth from "./tools/managementHealth.js";
@@ -31,6 +33,8 @@ const MODULES = [
   messageSearchRules,
   alerts,
   license,
+  serviceUsers,
+  credentials,
 ];
 
 export const tools = MODULES.flatMap((m) => m.tools);
