@@ -44,7 +44,8 @@ const tools = [
   },
   {
     name: "mip_create_api_route",
-    description: "Yeni API route oluşturur (POST /api/api-management/routes). uri gateway'de dinlenecek yol (ör. /http/my-api); nodes en az bir upstream host:port. plugins ham APISIX plugin objesidir (ör. {\"limit-count\":{...}}, {\"ip-restriction\":{whitelist:[...]}}, {\"consumer-restriction\":{whitelist:[...],type:\"consumer_name\"}}).",
+    description:
+      "Yeni API route oluşturur (POST /api/api-management/routes). uri gateway'de dinlenecek yol (ör. /http/my-api); nodes en az bir upstream host:port. plugins ham APISIX plugin objesidir; UI'daki 5 toggle karşılığı: Rate Limiting = {\"limit-count\":{count:100,time_window:60,rejected_code:429}}; IP White List = {\"ip-restriction\":{message:\"blocked\",whitelist:[\"192.168.0.0/24\"]}}; Consumer Restriction = {\"consumer-restriction\":{whitelist:[\"user1\"],type:\"consumer_name\",rejected_code:403}}; OpenID Connect = {\"openid-connect\":{discovery:\"<url>\",client_id:\"..\",client_secret:\"..\"}}; Basic Auth = {\"basic-auth\":{}}. Birden çok plugin tek objede birleştirilebilir; gateway proxy-rewrite/http-logger'ı kendi ekler.",
     inputSchema: {
       type: "object",
       properties: {
@@ -54,7 +55,7 @@ const tools = [
         methods: { type: "array", items: { type: "string" }, description: "HTTP metotları (ör. ['GET','POST']) — boşsa tümü" },
         nodes: { type: "array", items: NODE_ITEM, description: "Upstream düğümleri (host:port + weight)" },
         upstreamType: { type: "string", description: "Load-balance tipi (varsayılan 'roundrobin')" },
-        plugins: { type: "object", description: "Ham APISIX plugin konfigürasyonu (opsiyonel)" },
+        plugins: { type: "object", description: "Ham APISIX plugin objesi (opsiyonel). Örn Rate Limiting: {\"limit-count\":{count:100,time_window:60,rejected_code:429}}; IP White List: {\"ip-restriction\":{message:\"blocked\",whitelist:[\"1.2.3.0/24\"]}}; Consumer Restriction: {\"consumer-restriction\":{whitelist:[\"user1\"],type:\"consumer_name\",rejected_code:403}}; OpenID: {\"openid-connect\":{discovery,client_id,client_secret}}; Basic Auth: {\"basic-auth\":{}}." },
       },
       required: ["id", "name", "uri", "nodes"],
     },
