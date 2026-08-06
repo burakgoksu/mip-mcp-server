@@ -14,7 +14,7 @@ export const MIP_FLOW_SCHEMA = {
 
   nodeSchema: {
     commonFields: {
-      id: "dndnode_<timestamp> formatında unique string",
+      id: "dndnode_<sayi> formatında unique string. KRITIK: MIP v1.16 deploy derleyicisi bu formati ZORUNLU kilar — 'start1'/'cond1' gibi id'ler deploy'da 'Flow can not deploy. Cause is :' (bos sebep) 500 verir. mip_create_and_import_flow tum node id'lerini import'tan once otomatik bu formata cevirir (edge/condition/parentNode referanslariyla birlikte), yani sablonlardaki 'start1' gibi id'ler sorun degil.",
       type: "her zaman 'special'",
       sourcePosition: "genellikle 'right'",
       targetPosition: "genellikle 'left'",
@@ -466,6 +466,7 @@ export const MIP_FLOW_SCHEMA = {
     "KRITIK — CONDITION EXPRESSION: conditionValue string sabit karsilastirmasi tek tirnak ister: \"${exchangeProperty.route} == 'OK'\". Tirnaksiz (== OK) Camel'da patlar. Condition genelde body'yi degil, onceden processSetContext/processScript ile set edilmis exchangeProperty'yi okur.",
     "KRITIK — IKI CONDITION: Ard arda iki processCondition tamamen desteklenir; her biri BAGIMSIZ node + kendi edge seti + kendi default dali. Ikincinin girisine birincinin bir dalindan normalEdge ile gelinir. Bkz. flowTemplates.twoConditionsFlow.",
     "KRITIK — ERROR SUBFLOW: processErrorSubflow container type:'error' (special DEGIL); processStartError/processEndError ve ic node'lar parentNode:'<containerId>' + extent:'parent' tasir. Ana flow ile edge ile baglanmaz. Bkz. flowTemplates.errorSubflowFragment.",
+    "KRITIK — NODE ID FORMATI (v1.16 DEPLOY-BREAKER): node id'leri 'dndnode_<sayi>' formatinda OLMALI; 'start1'/'cond1' gibi id'ler flow'u ACAR ama DEPLOY'da 'Flow can not deploy. Cause is :' (bos sebepli) 500 verir. Bu, 'flow acilir ama deploy olmaz' sorununun asil sebebiydi. mip_create_and_import_flow bunu import oncesi OTOMATIK duzeltir (tum node id + edge source/target/id/conditionId + conditionsRows.edgeId + parentNode tutarli sekilde yeniden yazilir) — yani model 'start1' verse bile deploy calisir.",
     "v1.16 YENI NODE'LAR: processGraphicalMapping (gorsel esleme — flow-mapping nesnesine mappingName ile baglanir, bkz. graphicalMapping bolumu), processMCP (harici MCP server tool cagrisi — MCPState.tool; server /api/mcp-servers'ta senkronize olmali), processXIProxy (MIP->SAP XI/PI proxy gonderimi — XIProxyState; XI System/PO baglantisi Sap-Connections'ta tanimli olmali). processStart connectorType'a SAPXI (SAP->MIP XI proxy sender) eklendi.",
     "GRAPHICAL MAPPING deploy sarti: processGraphicalMapping kullanan flow'da mappingName ile ayni isimde bir flow-mapping VE kaynak/hedef schema resource'lari import paketine dahil edilmeli. mip_create_and_import_flow'un flowMappings + resources alanlarini kullan; aksi halde flow acilir ama esleme bos/deploy hatali olur.",
     "Credential/resource referansları (basicAuthResourceName, scriptPath, vb.) MIP'te önceden tanımlı olmalıdır.",

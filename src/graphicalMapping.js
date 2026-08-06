@@ -65,3 +65,42 @@ export function inferDataFormat(resourceType = "") {
   if (["xsd", "xml", "wsdl"].includes(resourceType)) return "XML";
   return "NONE";
 }
+
+// ─── Node id normalize (DEPLOY-BREAKER FIX) ───────────────────────────────────
+// MIP v1.16 deploy derleyicisi node id'lerinin `dndnode_<sayi>` formatinda olmasini
+// ZORUNLU kilar; 'start1'/'cond1' gibi id'ler deploy'da "Flow can not deploy. Cause
+// is :" (bos sebep) 500 verir. Bu fonksiyon uygun olmayan tum node id'lerini
+// yeniden yazar VE tum referanslari (edge source/target/id/conditionId,
+// conditionsRows[].edgeId, parentNode) tutarli sekilde gunceller.
+const DND = /^dndnode_\d+$/;
+const splitPair = (str) => { const s = String(str ?? ""); const i = s.indexOf("--"); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 2)]; };
+
+export function normalizeNodeIds(flowData) {
+  if (!Array.isArray(flowData)) return flowData;
+  const nodes = flowData.filter((x) => x && x.data && x.data.objectType);
+  let counter = 100000000;
+  const map = {};
+  for (const n of nodes) map[n.id] = DND.test(n.id) ? n.id : `dndnode_${counter++}`;
+  if (nodes.every((n) => map[n.id] === n.id)) return flowData; // hepsi zaten uygun
+  const R = (id) => (id in map ? map[id] : id);
+  return flowData.map((el) => {
+    if (el && el.data && el.data.objectType) {
+      const node = { ...el, id: R(el.id) };
+      if (node.parentNode) node.parentNode = R(node.parentNode);
+      const cs = node.data.connectorData && node.data.connectorData.ConditionState;
+      if (cs && Array.isArray(cs.conditionsRows)) {
+        node.data = { ...node.data, connectorData: { ...node.data.connectorData, ConditionState: { ...cs,
+          conditionsRows: cs.conditionsRows.map((r) => { const [a, b] = splitPair(r.edgeId); return { ...r, edgeId: `${R(a)}--${R(b)}` }; }) } } };
+      }
+      return node;
+    }
+    if (el && el.source && el.target) {
+      const src = R(el.source), tgt = R(el.target);
+      const edge = { ...el, source: src, target: tgt };
+      if (el.conditionId) { const [a, b] = splitPair(el.conditionId); edge.conditionId = `${R(a)}--${R(b)}`; }
+      edge.id = `reactflow__edge-${src}${el.sourceHandle || ""}-${tgt}`;
+      return edge;
+    }
+    return el;
+  });
+}

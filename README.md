@@ -4,6 +4,12 @@ MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Plat
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
+## What's new in 1.2.1 — the real deploy-breaker: node id format
+
+Found (and fixed) the actual cause of "the flow opens but won't deploy": **MIP v1.16's deploy compiler requires node ids in `dndnode_<number>` format.** Ids like `start1`/`cond1`/`okEnd` (which the KB templates used) let the flow open and save, but deploy fails with `HTTP 500 "Flow can not deploy. Cause is :"` (empty cause). Isolated decisively — an exact copy of a deployable flow deployed; the same flow rebuilt with `start1` ids failed; changing only the ids to `dndnode_` made it deploy.
+
+`mip_create_and_import_flow` now **auto-normalizes** node ids on import (`normalizeNodeIds`): every non-conforming id becomes `dndnode_<n>`, and all references are rewritten consistently — edge `source`/`target`/`id`/`conditionId`, `conditionsRows[].edgeId`, and `parentNode`. So the model can still emit `start1` and the flow deploys. Verified live: a `start1`-id flow (plain and with graphical mapping) now deploys. Also verified end-to-end: a graphical-mapping flow (`Start → GraphicalMapping → End`, real XSD) deployed with log level All.
+
 ## What's new in 1.2.0 — v1.16 flow KB: graphical mapping, new nodes & a deploy-breaker fix
 
 Analyzed **140 fresh sample flows** (MIP v1.16) and updated the internal flow knowledge base (`src/kb/flowSchema.js`) + `mip_create_and_import_flow` accordingly:
