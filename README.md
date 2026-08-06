@@ -1,8 +1,15 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **147 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **150 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.9 — JWT credential sync
+
+Completes gateway sync with the JWT credential type (mirrors the basic-auth trio from 1.1.8):
+
+- **`mip_list_service_user_jwt_credentials`** — `GET /api/service-users/{id}/jwt-authentication-credentials`.
+- **`mip_sync_jwt_credential_to_gateway`** / **`mip_unsync_jwt_credential_from_gateway`** — `POST`/`DELETE /api/api-management/sync/jwt-authentication-credentials/{credId}` (optional `consumerUsername`, `onConflict`).
 
 ## What's new in 1.1.8 — Gateway ↔ Service User sync
 

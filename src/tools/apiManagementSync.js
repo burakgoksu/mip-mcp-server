@@ -1,5 +1,5 @@
 // ─── API Management ↔ Service Users Sync ──────────────────────────────────────
-// MIP service user'larını (ve basic-auth kimliklerini) API Gateway'e consumer
+// MIP service user'larını (ve basic-auth / JWT kimliklerini) API Gateway'e consumer
 // olarak senkronize eder. Bu, gateway'de tanımlı bir consumer'ın MIP backend
 // tarafından da tanınmasını sağlar (standalone consumer 'Invalid user
 // authorization' alır — çünkü backend principal'ı gerçek bir service user'a
@@ -61,6 +61,29 @@ const tools = [
     description: "Bir basic-auth kimliğinin gateway senkronizasyonunu kaldırır (DELETE /api/api-management/sync/basic-authentication-credentials/{credentialId}).",
     inputSchema: { type: "object", properties: { credentialId: { type: "number", description: "Basic-auth credential ID" } }, required: ["credentialId"] },
   },
+  {
+    name: "mip_list_service_user_jwt_credentials",
+    description: "Bir service user'ın JWT kimliklerini (credential) listeler (GET /api/service-users/{id}/jwt-authentication-credentials). credentialId'leri mip_sync_jwt_credential_to_gateway ile tek tek senkronlayabilirsin.",
+    inputSchema: { type: "object", properties: { serviceUserId: { type: "number", description: "MIP service user ID" } }, required: ["serviceUserId"] },
+  },
+  {
+    name: "mip_sync_jwt_credential_to_gateway",
+    description: "Bir service user'ın belirli bir JWT kimliğini gateway'e consumer credential'ı olarak senkronize eder (POST /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        credentialId: { type: "number", description: "JWT credential ID (mip_list_service_user_jwt_credentials)" },
+        consumerUsername: { type: "string", description: "Hedef gateway consumer adı (opsiyonel)" },
+        onConflict: ONCONFLICT,
+      },
+      required: ["credentialId"],
+    },
+  },
+  {
+    name: "mip_unsync_jwt_credential_from_gateway",
+    description: "Bir JWT kimliğinin gateway senkronizasyonunu kaldırır (DELETE /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
+    inputSchema: { type: "object", properties: { credentialId: { type: "number", description: "JWT credential ID" } }, required: ["credentialId"] },
+  },
 ];
 
 const handlers = {
@@ -91,6 +114,20 @@ const handlers = {
 
   mip_unsync_basic_auth_credential_from_gateway: async (args, headers) =>
     `Basic-auth credential sync kaldırıldı (id ${args.credentialId}): ${JSON.stringify((await axios.delete(`${SYNC}/basic-authentication-credentials/${args.credentialId}`, { headers })).data)}`,
+
+  mip_list_service_user_jwt_credentials: async (args, headers) =>
+    JSON.stringify((await axios.get(`${BASE_URL}/api/service-users/${args.serviceUserId}/jwt-authentication-credentials`, { headers })).data, null, 2),
+
+  mip_sync_jwt_credential_to_gateway: async (args, headers) => {
+    const body = {};
+    if (args.onConflict) body.onConflict = args.onConflict;
+    if (args.consumerUsername) body.consumerUsername = args.consumerUsername;
+    const res = await axios.post(`${SYNC}/jwt-authentication-credentials/${args.credentialId}`, Object.keys(body).length ? body : undefined, { headers });
+    return `JWT credential gateway'e sync edildi (id ${args.credentialId}): ${JSON.stringify(res.data)}`;
+  },
+
+  mip_unsync_jwt_credential_from_gateway: async (args, headers) =>
+    `JWT credential sync kaldırıldı (id ${args.credentialId}): ${JSON.stringify((await axios.delete(`${SYNC}/jwt-authentication-credentials/${args.credentialId}`, { headers })).data)}`,
 };
 
 export default { tools, handlers };
