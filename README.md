@@ -1,8 +1,18 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests). **140 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests). **142 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.7 — Service Users v1.16 compatibility
+
+MIP v1.16 changed the Service Users API; these tools now work on **both** old and new versions:
+
+- **`mip_create_service_user` / `mip_update_service_user`** — v1.16 renamed the roles field from `roles` to `role`. The payload now sends **both** (each version reads its own field, ignores the other), so no caller change is needed and the old server keeps working.
+- **`mip_list_pure_service_users`** *(new)* — `GET /api/service-users/pure`: only pure `SERVICE-USER`-role users (the new UI's "Service Users" section).
+- **`mip_list_platform_users`** *(new)* — `GET /api/service-users/with-other-roles`: users with developer/ui-user/monitoring/admin roles (the new UI's "MDP Integration Platform Users" section).
+
+The original `mip_list_service_users` (flat list) is untouched. Verified live on v1.16.0-rc.5: dual-field create round-trips, and the two new lists match the UI counts.
 
 ## What's new in 1.1.6 — API Management (APISIX gateway)
 

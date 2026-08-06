@@ -17,6 +17,32 @@ const tools = [
     },
   },
   {
+    name: "mip_list_pure_service_users",
+    description: "(v1.16+) Yalnız SERVICE-USER rolüne sahip 'pure' service user'ları listeler — yeni UI'daki 'Service Users' bölümü (GET /api/service-users/pure). Eski sürümde bu uç yoksa 404 döner; onun yerine mip_list_service_users kullan.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        search: { type: "string", description: "Kullanıcı adı/e-posta filtresi (opsiyonel)" },
+        page:   { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        size:   { type: "number", description: "Sayfa boyutu (varsayılan 25)" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "mip_list_platform_users",
+    description: "(v1.16+) SERVICE-USER dışında rol(ler)i olan (developer/ui-user/monitoring/admin) kullanıcıları listeler — yeni UI'daki 'MDP Integration Platform Users' bölümü (GET /api/service-users/with-other-roles). Eski sürümde bu uç yoksa 404 döner.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        search: { type: "string", description: "Kullanıcı adı/e-posta filtresi (opsiyonel)" },
+        page:   { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        size:   { type: "number", description: "Sayfa boyutu (varsayılan 25)" },
+      },
+      required: [],
+    },
+  },
+  {
     name: "mip_create_service_user",
     description: "Yeni bir MIP service user'ı oluşturur. Roller: developer, ui-user, monitoring, admin, service-user. ÖNEMLİ: Service user MIP platformuna erişmek için kullanılır (UI girişi, API çağrısı, Start node'unu tetiklemek). processHTTP/processSOAP node'larındaki basicAuthResourceName veya oAuth2ResourceName için SERVICE USER KULLANILMAZ — onlar için mip_create_credential kullanılır.",
     inputSchema: {
@@ -88,11 +114,29 @@ const handlers = {
       return JSON.stringify(res.data, null, 2);
     },
 
+    // (v1.16+) Yeni UI'nın iki ayrı listesi. page 1-based → paginationPage 0-based.
+    mip_list_pure_service_users: async (args, headers) => {
+      const params = { paginationPage: (args.page ?? 1) - 1, paginationSize: args.size ?? 25 };
+      if (args.search) params.search = args.search;
+      const res = await axios.get(`${BASE_URL}/api/service-users/pure`, { headers, params });
+      return JSON.stringify(res.data, null, 2);
+    },
+
+    mip_list_platform_users: async (args, headers) => {
+      const params = { paginationPage: (args.page ?? 1) - 1, paginationSize: args.size ?? 25 };
+      if (args.search) params.search = args.search;
+      const res = await axios.get(`${BASE_URL}/api/service-users/with-other-roles`, { headers, params });
+      return JSON.stringify(res.data, null, 2);
+    },
+
     mip_create_service_user: async (args, headers) => {
+      // Sürüm uyumu: eski MIP `roles`, v1.16+ `role` bekliyor. İkisini de gönder;
+      // her API kendi alanını okur, diğerini yok sayar (bilinmeyen alan görmezden gelinir).
       const res = await axios.post(`${BASE_URL}/api/service-users`, {
         username: args.username,
         email: args.email,
         password: args.password,
+        role: args.roles,
         roles: args.roles,
       }, { headers });
       return `Service user oluşturuldu: ${JSON.stringify(res.data)}`;
@@ -102,7 +146,7 @@ const handlers = {
       const body = {};
       if (args.email)    body.email    = args.email;
       if (args.password) body.password = args.password;
-      if (args.roles)    body.roles    = args.roles;
+      if (args.roles) { body.role = args.roles; body.roles = args.roles; } // role (v1.16+) + roles (eski)
       const res = await axios.put(`${BASE_URL}/api/service-users/${args.username}`, body, { headers });
       return `Service user güncellendi: ${JSON.stringify(res.data)}`;
     },
