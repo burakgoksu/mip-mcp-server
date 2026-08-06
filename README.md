@@ -1,8 +1,18 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), and **Management** (system health + reports, test connectivity, alert configurations, license — read-only). **131 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests). **140 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.6 — API Management (APISIX gateway)
+
+The **API Management** menu — MIP's APISIX-based API gateway. Covers the three tabs (`/api/api-management/*`):
+
+- **Routes** — `mip_list_api_routes` / `mip_create_api_route` / `mip_update_api_route` / `mip_delete_api_route`. A route = `id`, `name`, `uri` (gateway path), `methods`, upstream `nodes` (host:port → weight), and a raw APISIX `plugins` object (`limit-count`, `ip-restriction`, `consumer-restriction`, `basic-auth`, `openid-connect`, …). `plugins` defaults to `{}` (the gateway rejects null).
+- **Consumers** — `mip_list_api_consumers` / `mip_create_api_consumer` / `mip_update_api_consumer` / `mip_delete_api_consumer`. Create optionally attaches a `BASIC` (password) or `JWT` (key/secret/algorithm) credential; consumers are keyed by `username`.
+- **Rejected Requests** — `mip_search_rejected_requests`: paginated gateway-rejection log, defaults to last 24h, filter by `clientIp`/`requestUri`/`statusCode`/`consumerName`.
+
+Verified live with full round-trips (route create→update→delete, consumer create→delete all 200/201; list + rejected-search return real data). Consumer→gateway **sync** (from MIP service users / credentials) lives under Security and is not built here.
 
 ## What's new in 1.1.5 — RFC Explorer + SOA Services & WSDL
 

@@ -10,6 +10,7 @@ import sapConnections from "./tools/sapConnections.js";
 import xiQueues from "./tools/xiQueues.js";
 import rfcExplorer from "./tools/rfcExplorer.js";
 import soaServices from "./tools/soaServices.js";
+import apiManagement from "./tools/apiManagement.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -37,6 +38,7 @@ const MODULES = [
   xiQueues,
   rfcExplorer,
   soaServices,
+  apiManagement,
   counters,
   alertConfig,
   managementHealth,
