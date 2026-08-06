@@ -4,6 +4,16 @@ MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Plat
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
+## What's new in 1.2.2 — graphical-mapping functions
+
+`mip_create_and_import_flow`'s `flowMappings` now accepts **`functions`** (not just 1:1 `links`) — so the model can build transforming mappings, not just field copies:
+
+- **CONSTANT** — set a target field to a fixed value: `{type:"CONSTANT", value:"123", target:"Root/MENGE"}`.
+- **MULTIPLY / ADD / SUBTRACT** — arithmetic. Multiply a field by a constant: `{type:"MULTIPLY", inputs:["Root/BNFPO"], constants:["3"], target:"Root/BNFPO"}` (MULTIPLY multiplies its inputs; the `3` is fed as an auto-generated CONSTANT node).
+- **CONCAT / UPPER_CASE / LOWER_CASE / SUBSTRING / REPLACE / TRIM / TO_NUMBER / TO_STRING / IF_ELSE / DATE_*** — the full APISIX-editor palette (String / Math / Type / Constant / Conditional / Date).
+
+Verified live end-to-end: a graphical-mapping flow with `MENGE = constant 123` and `BNFPO × 3` returned `MENGE=123`, `BNFPO=30` (input `BNFPO=10`) through the deployed REST endpoint. The runtime uses `data.mappings` + `data.functions`; `data.transformations` is editor-only and not required to deploy.
+
 ## What's new in 1.2.1 — the real deploy-breaker: node id format
 
 Found (and fixed) the actual cause of "the flow opens but won't deploy": **MIP v1.16's deploy compiler requires node ids in `dndnode_<number>` format.** Ids like `start1`/`cond1`/`okEnd` (which the KB templates used) let the flow open and save, but deploy fails with `HTTP 500 "Flow can not deploy. Cause is :"` (empty cause). Isolated decisively — an exact copy of a deployable flow deployed; the same flow rebuilt with `start1` ids failed; changing only the ids to `dndnode_` made it deploy.
@@ -380,7 +390,7 @@ Add to your `.mcp.json` or Claude Code settings:
 | Tool | Description |
 |---|---|
 | `mip_get_flow_schema` | Returns the embedded MIP flow KB (node types, edge/condition wiring, templates, expression language, validation, safety notes). **Call this before building any flow.** |
-| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers. **Auto-normalizes node ids to `dndnode_*`** (v1.16 deploy requirement). Optional `resources` (schema/xslt/…) + `flowMappings` (graphical mapping: `links:[{sourcePath,targetPath}]`) to create graphical-mapping flows in one shot |
+| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers. **Auto-normalizes node ids to `dndnode_*`** (v1.16 deploy requirement). Optional `resources` (schema/xslt/…) + `flowMappings` for graphical-mapping flows: `links` (1:1 field maps) and `functions` (CONSTANT / MULTIPLY / ADD / CONCAT / UPPER_CASE / … — e.g. set a field to a constant or multiply a field by N) |
 | `mip_export_packages_and_flows` | Exports packages and flows as a zip |
 | `mip_import_packages_and_flows` | Imports packages and flows from a zip |
 

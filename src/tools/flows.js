@@ -133,15 +133,31 @@ Diger node tipleri icin kural yok — SOAP Start (Sender) ozel.`,
         },
         flowMappings: {
           type: "array",
-          description: "(opsiyonel, v1.16) processGraphicalMapping node'lari icin gorsel esleme tanimlari. Her biri: { name (==node'daki mappingName), sourceSchema:{name,resourceType?}, targetSchema:{name,resourceType?}, links:[{sourcePath,targetPath,targetIsArray?}] }. sourcePath/targetPath = sema alan yolu (orn 'Header/MessageId'). Karmasik/fonksiyonel esleme icin links yerine ham 'data':{mappings,transformations} verilebilir. Referans verilen schema'lar 'resources' ile birlikte gonderilmeli.",
+          description: "(opsiyonel, v1.16) processGraphicalMapping node'lari icin gorsel esleme tanimlari. Her biri: { name (==node'daki mappingName), sourceSchema:{name,resourceType?}, targetSchema:{name,resourceType?}, links:[{sourcePath,targetPath}], functions:[...] }. sourcePath/targetPath = sema alan yolu tam yol (orn 'Order/Header/MessageId'). links = birebir alan eslemeleri. functions = donusumler (bkz. asagi). Referans verilen schema'lar 'resources' ile birlikte gonderilmeli. Kaynak==hedef sema icin ayni dosya adi verilebilir (identity mapping).",
           items: {
             type: "object",
             properties: {
               name: { type: "string" },
               sourceSchema: { type: "object", description: "{ name, resourceType? }" },
               targetSchema: { type: "object", description: "{ name, resourceType? }" },
-              links: { type: "array", items: { type: "object", properties: { sourcePath: { type: "string" }, targetPath: { type: "string" }, targetIsArray: { type: "boolean" } }, required: ["sourcePath", "targetPath"] } },
-              data: { type: "object", description: "ham {mappings,transformations} (links yerine, ileri kullanim)" }
+              links: { type: "array", description: "Birebir alan eslemeleri", items: { type: "object", properties: { sourcePath: { type: "string" }, targetPath: { type: "string" }, targetIsArray: { type: "boolean" } }, required: ["sourcePath", "targetPath"] } },
+              functions: {
+                type: "array",
+                description: "Fonksiyonel donusumler. type: CONSTANT|MULTIPLY|ADD|SUBTRACT|CONCAT|UPPER_CASE|LOWER_CASE|SUBSTRING|REPLACE|TRIM|TO_NUMBER|TO_STRING|IF_ELSE|DATE_FORMAT|... . Ornekler: sabit -> {type:'CONSTANT', value:'123', target:'Root/MENGE'}; carpma -> {type:'MULTIPLY', inputs:['Root/BNFPO'], constants:['3'], target:'Root/BNFPO'} (MULTIPLY girdilerini carpar, sabit 3 constants ile beslenir); birlestir -> {type:'CONCAT', inputs:['Root/A','Root/B'], params:{addSpace:true}, target:'Root/Full'}. target=hedef alan yolu; inputs=kaynak alan yollari; constants=ekstra sabit girdiler; params=fonksiyona ozel. Fonksiyonla uretilen hedef alani ayrica links'e KOYMA.",
+                items: {
+                  type: "object",
+                  properties: {
+                    type: { type: "string", description: "Fonksiyon tipi (CONSTANT/MULTIPLY/ADD/CONCAT/...)" },
+                    target: { type: "string", description: "Hedef alan yolu" },
+                    value: { type: "string", description: "CONSTANT icin sabit deger" },
+                    inputs: { type: "array", items: { type: "string" }, description: "Kaynak alan yollari (fonksiyon girdileri)" },
+                    constants: { type: "array", items: { type: "string" }, description: "Ekstra sabit girdiler (otomatik CONSTANT node)" },
+                    params: { type: "object", description: "Fonksiyona ozel parametreler" }
+                  },
+                  required: ["type", "target"]
+                }
+              },
+              data: { type: "object", description: "ham {mappings,functions,transformations} (links/functions yerine, ileri kullanim)" }
             },
             required: ["name", "sourceSchema", "targetSchema"]
           }

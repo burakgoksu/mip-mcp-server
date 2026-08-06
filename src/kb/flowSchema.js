@@ -428,7 +428,13 @@ export const MIP_FLOW_SCHEMA = {
       description: "flow-mapping.data = { mappings:[...], transformations:[...] }. React-Flow benzeri gorsel graf.",
       mappings: "Her kaynak->hedef alan baglantisi: { id:'<srcPath>-source--<tgtPath>-target', type:'custom', source:'source-file', target:'target-file', selected:false, markerEnd:{type:'arrow'}, sourceHandle:'<srcPath>-source', targetHandle:'<tgtPath>-target', targetIsArray:false }. srcPath/tgtPath = sema icindeki alan yolu (orn 'Header/MessageId', 'TransformedPayload/customer/fullName').",
       transformations: "Her HEDEF alan icin bir donusum dugumu: { id:'<tgtPath>-target', edges:[{ id:'<srcPath>-source--<tgtPath>-target', source, target, markerEnd }], nodes:[ {id:'<srcPath>-source', type:'fieldNode', data:{label, connectorType:'source'}}, {id:'<tgtPath>-target', type:'fieldNode', data:{label, connectorType:'target'}} ] }. Basit 1:1 eslemede her hedef alan icin tek edge.",
-      note: "1:1 alan eslemeleri icin mip_create_and_import_flow'a links:[{sourcePath,targetPath}] listesi verilir; MCP data.mappings + data.transformations'i otomatik uretir (concat gibi fonksiyonel donusumler icin ham data verilebilir)."
+      note: "1:1 alan eslemeleri icin mip_create_and_import_flow'a links:[{sourcePath,targetPath}] listesi verilir; MCP data.mappings'i otomatik uretir."
+    },
+    functions: {
+      description: "Fonksiyonel donusumler flow-mapping.data.functions'ta durur. RUNTIME data.mappings + data.functions'i kullanir; data.transformations SADECE gorsel editor icindir, deploy'da GEREKMEZ (canli dogrulandi). mip_create_and_import_flow'da flowMappings[].functions ile verilir; fonksiyonla uretilen hedef alani ayrica links'e KONMAZ.",
+      palette: "String: CONCAT, SPLIT, SUBSTRING, UPPER_CASE, LOWER_CASE, REPLACE, TRIM | Math: ADD, SUBTRACT, MULTIPLY (girdilerini birlikte isler) | Type: TO_NUMBER, TO_STRING | Constant: CONSTANT (params.value) | Conditional: IF_ELSE | Date: CURRENT_DATE, DATE_FORMAT, DATE_BEFORE, DATE_AFTER, COMPARE_DATES",
+      shape: "data.functions[] = { id:'<Label>--dndnode_<n>', type, inputs:[<srcPath>-source | <baska-fonksiyon-node-id>], params:{}, outputs:[<tgtPath>-target | <fonksiyon-node-id>], position }. Fonksiyonlar zincirlenebilir: bir fonksiyonun outputs'u baska bir fonksiyonun node id'si olur.",
+      toolInput: "flowMappings[].functions ornekleri: sabit -> {type:'CONSTANT', value:'123', target:'Root/MENGE'}; carpma -> {type:'MULTIPLY', inputs:['Root/BNFPO'], constants:['3'], target:'Root/BNFPO'} (MULTIPLY girdileri carpar; sabit 3 icin constants kullanilir, MCP otomatik CONSTANT node besler); birlestir -> {type:'CONCAT', inputs:['Root/A','Root/B'], params:{addSpace:true}, target:'Root/Full'}."
     }
   },
 

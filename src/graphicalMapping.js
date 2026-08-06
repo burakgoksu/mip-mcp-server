@@ -33,20 +33,70 @@ export function buildMappingData(links = []) {
   return { mappings, transformations };
 }
 
+// ─── Mapping functions (CONSTANT / MULTIPLY / CONCAT ...) ─────────────────────
+// Runtime data.functions'i kullanir (data.transformations gorsel editor icindir,
+// deploy'da GEREKMEZ — canli dogrulandi). Fonksiyon paleti (kategori -> tip):
+//  String:   CONCAT, SPLIT, SUBSTRING, UPPER_CASE, LOWER_CASE, REPLACE, TRIM
+//  Math:     ADD, SUBTRACT, MULTIPLY   (girdilerini birlikte isler; sabit icin CONSTANT besle)
+//  Type:     TO_NUMBER, TO_STRING
+//  Constant: CONSTANT (params.value)
+//  Conditional: IF_ELSE   Date: CURRENT_DATE, DATE_FORMAT, DATE_BEFORE, DATE_AFTER, COMPARE_DATES
+export const MAPPING_FUNCTION_TYPES = [
+  "CONCAT", "SPLIT", "SUBSTRING", "UPPER_CASE", "LOWER_CASE", "REPLACE", "TRIM",
+  "ADD", "SUBTRACT", "MULTIPLY", "TO_NUMBER", "TO_STRING", "CONSTANT",
+  "IF_ELSE", "CURRENT_DATE", "DATE_FORMAT", "DATE_BEFORE", "DATE_AFTER", "COMPARE_DATES",
+];
+const FN_LABEL = { CONCAT: "Concat", SPLIT: "Split", SUBSTRING: "Substring", UPPER_CASE: "UpperCase", LOWER_CASE: "LowerCase", REPLACE: "Replace", TRIM: "Trim", ADD: "Add", SUBTRACT: "Subtract", MULTIPLY: "Multiply", TO_NUMBER: "ToNumber", TO_STRING: "ToString", CONSTANT: "Constant", IF_ELSE: "IfElse", CURRENT_DATE: "CurrentDate", DATE_FORMAT: "DateFormat", DATE_BEFORE: "DateBefore", DATE_AFTER: "DateAfter", COMPARE_DATES: "CompareDates" };
+
+// fnSpecs -> data.functions[]. Her spec: { type, target, value?, inputs?[], constants?[], params?{} }.
+// inputs = kaynak alan yollari; constants = otomatik CONSTANT node olarak beslenen sabit degerler
+// (ör. MULTIPLY girdilerini carpar; "×3" icin inputs:['BNFPO'], constants:['3']).
+export function buildFunctions(fnSpecs = []) {
+  const functions = [];
+  let counter = 100000000;
+  const nid = (t) => `${FN_LABEL[t] || "Fn"}--dndnode_${counter++}`;
+  for (const fn of fnSpecs) {
+    if (!fn || !fn.type) continue;
+    const type = String(fn.type).toUpperCase();
+    if (!MAPPING_FUNCTION_TYPES.includes(type)) throw new Error(`Bilinmeyen mapping fonksiyonu: '${type}'. Gecerli: ${MAPPING_FUNCTION_TYPES.join(", ")}`);
+    if (!fn.target) throw new Error(`Mapping fonksiyonu '${type}': target (hedef alan yolu) zorunlu.`);
+    const outHandle = `${fn.target}-target`;
+    if (type === "CONSTANT") {
+      functions.push({ id: nid(type), type, inputs: [], params: { value: String(fn.value ?? (fn.params && fn.params.value) ?? "") }, outputs: [outHandle], position: { x: 400, y: 100 } });
+      continue;
+    }
+    const funcId = nid(type);
+    const inputs = (fn.inputs || []).map((p) => `${p}-source`);
+    for (const c of fn.constants || []) {
+      const cid = nid("CONSTANT");
+      functions.push({ id: cid, type: "CONSTANT", inputs: [], params: { value: String(c) }, outputs: [funcId], position: { x: 200, y: 250 } });
+      inputs.push(cid);
+    }
+    functions.push({ id: funcId, type, inputs, params: fn.params || {}, outputs: [outHandle], position: { x: 400, y: 250 } });
+  }
+  return functions;
+}
+
 // Tam flow-mapping nesnesi. sourceSchema/targetSchema: { name, resourceType(xsd|xml|json) }.
-// data verilirse (fonksiyonel/karmasik esleme) links yok sayilir. flowId flow ile ayni olmali.
+// data verilirse (ham) links/functions yok sayilir. flowId flow ile ayni olmali.
 // Audit/id alanlari EKLENMEZ — server atar; schema resource'lari isim+flowId ile cozulur.
-export function buildFlowMapping({ name, flowId, sourceSchema, targetSchema, links, data }) {
+export function buildFlowMapping({ name, flowId, sourceSchema, targetSchema, links, functions, data }) {
   if (!name) throw new Error("flowMapping.name zorunlu (processGraphicalMapping.mappingName ile ayni olmali).");
   if (!sourceSchema || !sourceSchema.name) throw new Error(`flowMapping '${name}': sourceSchema.name zorunlu.`);
   if (!targetSchema || !targetSchema.name) throw new Error(`flowMapping '${name}': targetSchema.name zorunlu.`);
+  let mappingData = data;
+  if (!mappingData) {
+    mappingData = buildMappingData(links || []);
+    const fns = buildFunctions(functions || []);
+    if (fns.length) mappingData.functions = fns;
+  }
   return {
     name,
     flowId,
     version: 1,
     sourceSchemaResource: { name: sourceSchema.name, flowId, resourceType: sourceSchema.resourceType || inferType(sourceSchema.name) },
     targetSchemaResource: { name: targetSchema.name, flowId, resourceType: targetSchema.resourceType || inferType(targetSchema.name) },
-    data: data || buildMappingData(links || []),
+    data: mappingData,
   };
 }
 
