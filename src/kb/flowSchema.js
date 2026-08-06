@@ -1,7 +1,7 @@
 // ─── MIP Flow Schema Knowledge Base ──────────────────────────────────────────
 // 310 gerçek flow analiz edilerek oluşturulmuştur. 55 node tipi, tüm alanlar.
 export const MIP_FLOW_SCHEMA = {
-  description: "MIP Integration Platform — Flow, Resource ve Package şema bilgisi. 310+ gerçek flow (Kervan Prod dahil 55 canli musteri flow'u) analiz edilerek olusturuldu. Karmasik akislarda (birden fazla processCondition, error subflow, split/multicast) DOGRU edge/condition wiring icin flowTemplates, edgeSchema.conditionEdge ve validation bolumlerine bak.",
+  description: "MIP Integration Platform — Flow, Resource ve Package şema bilgisi. 310+ gerçek flow (Kervan Prod + 140 v1.16 ornek flow) analiz edilerek olusturuldu. Karmasik akislarda (birden fazla processCondition, error subflow, split/multicast) DOGRU edge/condition wiring icin flowTemplates, edgeSchema.conditionEdge ve validation bolumlerine bak. v1.16 YENI: processGraphicalMapping/processMCP/processXIProxy node'lari, SAPXI start ve gorsel esleme icin graphicalMapping bolumu. KRITIK DUZELTME: condition edge'ler sourceHandle:'normal-source' DE tasir.",
 
   flowStructure: {
     topLevelFields: {
@@ -40,7 +40,7 @@ export const MIP_FLOW_SCHEMA = {
         type: "'buttonedge' (SABIT)",
         source: "kaynak node id",
         target: "hedef node id",
-        sourceHandle: "'normal-source' — normal cikisli node'larda bulunur (script, setContext, SOAP, RFC, mail, start, vb.). processCondition ciKISI HARIC.",
+        sourceHandle: "'normal-source' — TUM edge'lerde bulunur (normal cikislar VE v1.16'da condition edge'ler de). Condition edge'i ayrica conditionId+label tasir.",
         height: 0, width: 0, processSteps: []
       },
       example: { id: "reactflow__edge-nodeAnormal-source-nodeB", type: "buttonedge", source: "nodeA", target: "nodeB", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
@@ -48,16 +48,17 @@ export const MIP_FLOW_SCHEMA = {
     conditionEdge: {
       description: "processCondition node'undan cikan her dal. KRITIK: bu edge'i ELLE yazmak ZORUNLU — 'otomatik olusmaz'. Her conditionsRow icin birebir bir conditionEdge olmali.",
       fields: {
-        id: "reactflow__edge-<sourceId>-<targetId>",
+        id: "reactflow__edge-<sourceId>normal-source-<targetId>",
         type: "'buttonedge' (SABIT)",
         source: "processCondition node id",
         target: "dalin gittigi hedef node id",
+        sourceHandle: "'normal-source' — v1.16 GERCEK flow'larda condition edge'ler DE bu handle'i tasir (normal edge ile ayni). ESKI KB'de 'yazilmaz' deniyordu, YANLIS. conditionId+label ile BIRLIKTE bulunur.",
         conditionId: "'<sourceId>--<targetId>' (CIFT tire). Node'daki conditionsRows[].edgeId ile BIREBIR AYNI olmali — eslesmezse dal baglanmaz, deploy patlar.",
         label: "conditionsRows[].conditionName ile ayni (orn 'OK','ERR','default')",
         height: 0, width: 0, processSteps: []
       },
-      note: "conditionEdge'de sourceHandle YAZILMAZ (conditionId onun yerini alir).",
-      example: { id: "reactflow__edge-condA-targetB", type: "buttonedge", source: "condA", target: "targetB", conditionId: "condA--targetB", label: "OK", height: 0, width: 0, processSteps: [] }
+      note: "CONDITION EDGE = NORMAL EDGE + conditionId + label. Yani sourceHandle:'normal-source' DE bulunur (v1.16 export'larinda 84/84 boyle). Onceki KB 'sourceHandle yazilmaz' diyordu; bu duzeltildi.",
+      example: { id: "reactflow__edge-condAnormal-source-targetB", type: "buttonedge", source: "condA", target: "targetB", sourceHandle: "normal-source", conditionId: "condA--targetB", label: "OK", height: 0, width: 0, processSteps: [] }
     }
   },
 
@@ -66,7 +67,7 @@ export const MIP_FLOW_SCHEMA = {
       description: "Her flow'un tek zorunlu giris noktasi. connectorType ile trigger tipi belirlenir.",
       required: true,
       connectorDataKey: "StartState",
-      commonFields: { connectorType: "REST|SOAP|File|SFTP|JMS|JDBC|Timer|OData|OFTP2|MQTT|Mail|Direct|RabbitMQ|Solace|Kafka|Opcua|AS2|AWSSimpleQueue", isSyncEndpoint: true, concurrentConsumers: 1, addSearchterm: false, httpsEnable: false, isIdempotentActive: false, fileMaxSize: "10000" },
+      commonFields: { connectorType: "REST|SOAP|File|SFTP|JMS|JDBC|Timer|OData|OFTP2|MQTT|Mail|Direct|RabbitMQ|Solace|Kafka|Opcua|AS2|AWSSimpleQueue|SAPXI", isSyncEndpoint: true, concurrentConsumers: 1, addSearchterm: false, httpsEnable: false, isIdempotentActive: false, fileMaxSize: "10000" },
       byConnectorType: {
         REST: {
           restAddress: "/api/endpoint",
@@ -128,7 +129,8 @@ export const MIP_FLOW_SCHEMA = {
         Opcua: { opcuaHost: "opcua.host.com", opcuaApplicationName: "ClientAppName", opcuaApplicationUri: "urn:example:client", opcuaBasicAuthenticationId: "credential-ref", opcuaIsAnonymousLogin: false, opcuaAllowedSecurityPolicies: "Basic256", opcuaKeyStoreName: "opsiyonel" },
         OData: { odataHttpAddress: "https://odata.service.com", odataResourcePath: "EntitySet", odataOperation: "GET", odataVersion: "v2.0|v4.0", odataContentType: "JSON", odataHttpAuthentication: "none|basic|oauth2", odataBasicAuthResourceName: "opsiyonel", odataOAuth2ResourceName: "opsiyonel", odataQueryOptions: "optional-query", odataFields: "{}", odataCron: "0 0/5 * * * ?", odataHttpTimeout: "3000" },
         AS2: { as2Uri: "as2/receive", as2From: "MY_COMPANY_AS2", as2To: "PARTNER_AS2_ID", as2EdiMessageType: "application/edifact", clientCertificateName: "cert-adi", clientPrivateKeyName: "key-adi" },
-        AWSSimpleQueue: { awsCredential: "credential-ref", awsCron: "0 0/1 * * * ?", bucketName: "opsiyonel", objectKey: "opsiyonel" }
+        AWSSimpleQueue: { awsCredential: "credential-ref", awsCron: "0 0/1 * * * ?", bucketName: "opsiyonel", objectKey: "opsiyonel" },
+        SAPXI: { note: "SAP XI/PI Proxy SENDER (v1.16). SAP'tan MIP'e XI/PI proxy mesaji alir. Gonderen tarafi processXIProxy node'udur (bkz. nodeTypes.processXIProxy); XI System/PO baglantisi Operations>Sap-Connections>XI Proxy'de tanimli olmali (mip_*_xi_system / mip_*_po_connection). SOAP/REST auth alanlari BASIC ile gelir (soapAuthenticationType:'BASIC', restAuthenticationType:'BASIC').", soapAuthenticationType: "BASIC", restAuthenticationType: "BASIC", fileCharset: "UTF-8" }
       }
     },
     processEnd: { description: "Flow cikis noktasi. Birden fazla olabilir.", connectorDataKey: null, fields: { label: "End" } },
@@ -211,6 +213,7 @@ export const MIP_FLOW_SCHEMA = {
       connectorDataKey: "ConditionState",
       rules: [
         "ZORUNLU DEFAULT: Her processCondition'da TAM BIR satir isDefaultCondition:true olmali. Default satirda conditionType:'' ve conditionValue:'' (BOS). Default yoksa eslesmeyen mesaj kaybolur ve flow deploy/calisma hatasi verir.",
+        "EDGE SEKLI (v1.16): condition edge = normal edge + conditionId + label. Yani sourceHandle:'normal-source' DE tasir (id de 'reactflow__edge-<cond>normal-source-<hedef>'). Onceki KB 'sourceHandle yazilmaz' diyordu, DUZELTILDI — 84/84 gercek export'ta sourceHandle var.",
         "EDGE ESLESMESI: conditionsRows[].edgeId, o dala karsilik gelen conditionEdge'in conditionId'si ile BIREBIR ayni olmali. Format: '<conditionNodeId>--<hedefNodeId>' (cift tire).",
         "HER SATIR = HER EDGE: N conditionsRow varsa N adet conditionEdge olmali. Eksik/fazla edge deploy'u bozar.",
         "EXPRESSION QUOTING: conditionType:'Expression' iken string sabitler TEK TIRNAK icinde: \"${exchangeProperty.rootName} == 'OK'\". Tirnaksiz yazim (== OK) Camel Simple'da patlar. Sayisal karsilastirma tirnaksiz: \"${exchangeProperty.count} > 0\".",
@@ -226,10 +229,10 @@ export const MIP_FLOW_SCHEMA = {
           { edgeId: "condA--nodeNone", conditionName: "default",conditionType: "",           conditionValue: "",                                     isDefaultCondition: true }
         ] } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
         edges: [
-          { id: "reactflow__edge-condA-nodeErr",  type: "buttonedge", source: "condA", target: "nodeErr",  conditionId: "condA--nodeErr",  label: "ERR",     height: 0, width: 0, processSteps: [] },
-          { id: "reactflow__edge-condA-nodeFatal",type: "buttonedge", source: "condA", target: "nodeFatal",conditionId: "condA--nodeFatal",label: "FATAL",   height: 0, width: 0, processSteps: [] },
-          { id: "reactflow__edge-condA-nodeOk",   type: "buttonedge", source: "condA", target: "nodeOk",   conditionId: "condA--nodeOk",   label: "OK",      height: 0, width: 0, processSteps: [] },
-          { id: "reactflow__edge-condA-nodeNone", type: "buttonedge", source: "condA", target: "nodeNone", conditionId: "condA--nodeNone", label: "default", height: 0, width: 0, processSteps: [] }
+          { id: "reactflow__edge-condAnormal-source-nodeErr",  type: "buttonedge", source: "condA", target: "nodeErr",  sourceHandle: "normal-source", conditionId: "condA--nodeErr",  label: "ERR",     height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condAnormal-source-nodeFatal",type: "buttonedge", source: "condA", target: "nodeFatal",sourceHandle: "normal-source", conditionId: "condA--nodeFatal",label: "FATAL",   height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condAnormal-source-nodeOk",   type: "buttonedge", source: "condA", target: "nodeOk",   sourceHandle: "normal-source", conditionId: "condA--nodeOk",   label: "OK",      height: 0, width: 0, processSteps: [] },
+          { id: "reactflow__edge-condAnormal-source-nodeNone", type: "buttonedge", source: "condA", target: "nodeNone", sourceHandle: "normal-source", conditionId: "condA--nodeNone", label: "default", height: 0, width: 0, processSteps: [] }
         ]
       },
       twoConditionNote: "IKI AYRI condition node ard arda kullanilabilir (gercek flow'larda yaygin: once 'Route' sonra 'SAP gate'). Her biri BAGIMSIZ bir node + kendi edge setine sahip. Ikinci condition'in girisine, birinci condition'in bir dalindan normalEdge ile gelinir. Hata belirtisi 'iki condition kullanamadim' -> genellikle ikinci condition'in edge conditionId eslesmesi veya default dali eksikti."
@@ -294,7 +297,24 @@ export const MIP_FLOW_SCHEMA = {
     processSalesforceRestQuery: { description: "Salesforce SOQL ile veri sorgular.", connectorDataKey: "SalesforceRestQueryState", fields: { salesforceClientCredential: "client-credential", salesforceUserCredential: "user-credential", processType: "SOQL Query", query: "SELECT Id, Name FROM Account WHERE Industry = 'Technology'", apiVersion: "56.0", includeDeletedRecords: false } },
     processOFTP2: { description: "OFTP2 protokolu ile dosya transferi. Otomotiv EDI'da yaygin.", connectorDataKey: "OFTP2State", fields: { oftp2ConnectionName: 0, host: "oftp2.partner.com", port: 6619, encoding: "ISO-8859-1|UTF-8", fileName: "dosya-adi", fileFormat: "Unstructured|Fixed length|Variable", fileDescription: "opsiyonel", sfid: "O0013000FIRMAADIKOD", isCompressed: false, isEncrypted: false, isSigned: false, signAlgorithm: "MD5|SHA1 (opsiyonel)" } },
     processAS2: { description: "AS2 protokolu ile B2B EDI dosya transferi. Imzalama ve sifreleme destekler.", connectorDataKey: "AS2State", fields: { as2From: "MY_COMPANY_AS2_ID", as2To: "PARTNER_AS2_ID", uri: "as2/receive", hostname: "as2.partner.com", port: 443, ediMessageType: "application/edifact|application/x-edi-x12", messageStructure: "PLAIN|CMS", subject: "mesaj konusu", sendMdn: true, signMdn: true, encryptingAlgorithm: "AES128_CBC|AES256_CBC|3DES", signingAlgorithm: "SHA256WITHRSA|SHA1WITHRSA", isCharsetConversionEnabled: false, clientPrivateKeyId: "key-id", clientPrivateKeyName: "key-adi", clientCertificateId: "opsiyonel", clientCertificateName: "opsiyonel", serverCertificateId: "opsiyonel", serverCertificateName: "opsiyonel", mdnMessageTemplate: "opsiyonel" } },
-    conditionEdge: { description: "processCondition cikisindaki kosullu edge. Node DEGIL, edge tipidir ve ELLE YAZILMALI (otomatik olusmaz). Yapisi icin bkz. edgeSchema.conditionEdge. Her conditionsRow icin bir tane, conditionId=edgeId eslesmeli, ayrica bir default dali edge'i de bulunmali.", connectorDataKey: null }
+    processGraphicalMapping: {
+      description: "(v1.16 YENI) Gorsel (drag-drop) alan eslemesi uygular — XSLT/Groovy yazmadan kaynak sema alanlarini hedef sema alanlarina baglar. Node connectorData'da SADECE mappingName tasir; asil esleme AYRI bir 'flow-mapping' nesnesinde durur (bkz. graphicalMapping bolumu). ONEMLI: mappingName == flow-mapping.name (ayni flowId altinda) BIREBIR eslesmeli; ayrica flow-mapping ve kaynak/hedef schema resource'lari import paketine dahil edilmeli yoksa deploy'da esleme bulunamaz.",
+      connectorDataKey: "GraphicalMappingState",
+      fields: { mappingName: "Bagli flow-mapping'in adi (orn 'MAPPING'). Ayni flowId'deki flow-mapping.name ile ayni olmali." },
+      note: "XSLT (processXSLTMapping) ve Groovy (processScript) resource DOSYASINA (.xsl/.groovy) referans verir; graphical mapping ise resource degil, birinci-sinif flow-mapping nesnesine (name ile) referans verir. Uretim/import icin mip_create_and_import_flow'un flowMappings alanini kullan."
+    },
+    processMCP: {
+      description: "(v1.16 YENI) MIP'in MCP CLIENT olarak baglandigi harici bir MCP server'in bir tool'unu cagirir. connectorData sadece cagrilacak tool adini tasir. Kullanilacak MCP server Operations>Destinations>MCP Servers'ta tanimli+SENKRONIZE olmali (mip_create_mcp_server + mip_sync_mcp_server); tool adi o server'in sundugu tool'lardan biri (mip_list_mcp_server_tools ile gorulur).",
+      connectorDataKey: "MCPState",
+      fields: { tool: "Cagrilacak MCP tool adi (orn 'echo', 'printEnv', 'list_allowed_directories'). MCP server'in expose ettigi tool'lardan biri." },
+      note: "Bu, /api/mcp-servers (mip_*_mcp_server tool'lari) ile tanimli DIS MCP server'lara baglanir — bu projenin kendisi (mip-mcp-server) ile karistirma. Transport HTTP/SSE olmali (stdio/npx senkronize olmaz)."
+    },
+    processXIProxy: {
+      description: "(v1.16 YENI) MIP'ten SAP'a XI/PI proxy mesaji GONDERIR (SAP XI proxy receiver). Karsi taraf (SAP'tan MIP'e) processStart connectorType:'SAPXI'dir. XI System / PO baglantisi Operations>Sap-Connections>XI Proxy'de tanimli olmali (mip_*_xi_system, mip_*_po_connection, mip_*_soa_connection) — takilan mesajlar mip_list_xi_queue_messages ile izlenir.",
+      connectorDataKey: "XIProxyState",
+      fields: { xiSystemName: "Hedef XI System adi (mip_list_xi_systems)", xiInterfaceName: "SAP interface adi (orn 'SI_CUSTOM_MODULE_INB_SYN')", xiNamespace: "Interface namespace (orn 'http://mdpgroup.com/...')", xiQos: "BestEffort|ExactlyOnce|ExactlyOnceInOrder", xiSenderService: "Gonderen servis adi (orn 'MIP')", xiInterfaceSource: "'catalog' (ESR katalogundan) veya 'wsdl' (yuklenmis WSDL)", xiCatalogConnectionId: "catalog kaynagi icin PO/SOA connection id (string)", xiWsdlResourceName: "wsdl kaynagi icin yuklenmis WSDL adi", xiTimeout: 60000, xiMaxRetries: 0, xiRetryDelay: 5000 }
+    },
+    conditionEdge: { description: "processCondition cikisindaki kosullu edge. Node DEGIL, edge tipidir ve ELLE YAZILMALI (otomatik olusmaz). Yapisi icin bkz. edgeSchema.conditionEdge. Her conditionsRow icin bir tane, sourceHandle:'normal-source'+conditionId+label tasir, conditionId=edgeId eslesmeli, ayrica bir default dali edge'i de bulunmali.", connectorDataKey: null }
   },
 
 
@@ -344,9 +364,9 @@ export const MIP_FLOW_SCHEMA = {
         { id: "defEnd", type: "special", data: { objectType: "processEnd", label: "Def End", connectorData: null }, position: { x: 900, y: 300 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-start1normal-source-set1", type: "buttonedge", source: "start1", target: "set1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-set1normal-source-cond1", type: "buttonedge", source: "set1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond1-okEnd",  type: "buttonedge", source: "cond1", target: "okEnd",  conditionId: "cond1--okEnd",  label: "OK",      height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond1-errEnd", type: "buttonedge", source: "cond1", target: "errEnd", conditionId: "cond1--errEnd", label: "ERR",     height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond1-defEnd", type: "buttonedge", source: "cond1", target: "defEnd", conditionId: "cond1--defEnd", label: "default", height: 0, width: 0, processSteps: [] }
+        { id: "reactflow__edge-cond1normal-source-okEnd",  type: "buttonedge", source: "cond1", target: "okEnd",  sourceHandle: "normal-source", conditionId: "cond1--okEnd",  label: "OK",      height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1normal-source-errEnd", type: "buttonedge", source: "cond1", target: "errEnd", sourceHandle: "normal-source", conditionId: "cond1--errEnd", label: "ERR",     height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1normal-source-defEnd", type: "buttonedge", source: "cond1", target: "defEnd", sourceHandle: "normal-source", conditionId: "cond1--defEnd", label: "default", height: 0, width: 0, processSteps: [] }
       ]
     },
 
@@ -367,11 +387,11 @@ export const MIP_FLOW_SCHEMA = {
         { id: "okEnd", type: "special", data: { objectType: "processEnd", label: "OK End",  connectorData: null }, position: { x: 1200, y: 0 }, height: 40, width: 160, processSteps: [] },
         { id: "end1",  type: "special", data: { objectType: "processEnd", label: "Skip End", connectorData: null }, position: { x: 600, y: 150 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-start1normal-source-cond1", type: "buttonedge", source: "start1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond1-proc1", type: "buttonedge", source: "cond1", target: "proc1", conditionId: "cond1--proc1", label: "OK",      height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond1-end1",  type: "buttonedge", source: "cond1", target: "end1",  conditionId: "cond1--end1",  label: "default", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1normal-source-proc1", type: "buttonedge", source: "cond1", target: "proc1", sourceHandle: "normal-source", conditionId: "cond1--proc1", label: "OK",      height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond1normal-source-end1",  type: "buttonedge", source: "cond1", target: "end1",  sourceHandle: "normal-source", conditionId: "cond1--end1",  label: "default", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-proc1normal-source-cond2", type: "buttonedge", source: "proc1", target: "cond2", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond2-sapErr", type: "buttonedge", source: "cond2", target: "sapErr", conditionId: "cond2--sapErr", label: "sapError", height: 0, width: 0, processSteps: [] },
-        { id: "reactflow__edge-cond2-okEnd",  type: "buttonedge", source: "cond2", target: "okEnd",  conditionId: "cond2--okEnd",  label: "default",  height: 0, width: 0, processSteps: [] }
+        { id: "reactflow__edge-cond2normal-source-sapErr", type: "buttonedge", source: "cond2", target: "sapErr", sourceHandle: "normal-source", conditionId: "cond2--sapErr", label: "sapError", height: 0, width: 0, processSteps: [] },
+        { id: "reactflow__edge-cond2normal-source-okEnd",  type: "buttonedge", source: "cond2", target: "okEnd",  sourceHandle: "normal-source", conditionId: "cond2--okEnd",  label: "default",  height: 0, width: 0, processSteps: [] }
       ]
     },
 
@@ -393,6 +413,25 @@ export const MIP_FLOW_SCHEMA = {
     }
   },
 
+  graphicalMapping: {
+    description: "(v1.16 YENI) Gorsel alan eslemesi (drag-drop mapping). XSLT/Groovy YAZMADAN kaynak sema alanlarini hedef sema alanlarina baglar. processXSLTMapping (.xsl dosyasi) veya processScript (.groovy dosyasi) RESOURCE'a referans verir; graphical mapping ise AYRI bir birinci-sinif 'flow-mapping' NESNESIDIR ve node ona name ile referans verir.",
+    architecture: [
+      "3 parca: (1) processGraphicalMapping node (connectorData: { GraphicalMappingState: { mappingName } }), (2) flow-mapping nesnesi (esleme grafi + kaynak/hedef sema referansi), (3) kaynak & hedef schema RESOURCE'lari (xsd/xml/json dosyalari).",
+      "BAGLANTI: node.GraphicalMappingState.mappingName == flow-mapping.name (ayni flowId altinda). Ayni isimde flow-mapping yoksa deploy'da esleme bulunamaz.",
+      "IMPORT: flow-mapping nesnesi export/import zip'inde 'flow-mappings/' klasorunde, schema dosyalari 'resources/' klasorunde tasinir. mip_create_and_import_flow'un flowMappings + resources alanlari bunlari paketler (aksi halde graphical mapping'li flow deploy olsa da esleme bos kalir)."
+    ],
+    flowMappingObject: {
+      description: "flow-mappings/ altindaki her kayit. id/createdBy vb. audit alanlari server tarafinda atanir — gonderme.",
+      shape: { name: "Esleme adi (node'daki mappingName ile ayni)", flowId: "Ait oldugu flow", version: 1, sourceSchemaResourceId: "server id — import'ta ISIM ile cozulur, elle verme", sourceSchemaResource: { name: "kaynak-sema-dosyasi.xsd", flowId: "F_...", resourceType: "xsd|xml|json" }, targetSchemaResourceId: "server id", targetSchemaResource: { name: "hedef-sema.json", flowId: "F_...", resourceType: "xsd|xml|json" }, data: "esleme grafi (asagida)" }
+    },
+    dataFormat: {
+      description: "flow-mapping.data = { mappings:[...], transformations:[...] }. React-Flow benzeri gorsel graf.",
+      mappings: "Her kaynak->hedef alan baglantisi: { id:'<srcPath>-source--<tgtPath>-target', type:'custom', source:'source-file', target:'target-file', selected:false, markerEnd:{type:'arrow'}, sourceHandle:'<srcPath>-source', targetHandle:'<tgtPath>-target', targetIsArray:false }. srcPath/tgtPath = sema icindeki alan yolu (orn 'Header/MessageId', 'TransformedPayload/customer/fullName').",
+      transformations: "Her HEDEF alan icin bir donusum dugumu: { id:'<tgtPath>-target', edges:[{ id:'<srcPath>-source--<tgtPath>-target', source, target, markerEnd }], nodes:[ {id:'<srcPath>-source', type:'fieldNode', data:{label, connectorType:'source'}}, {id:'<tgtPath>-target', type:'fieldNode', data:{label, connectorType:'target'}} ] }. Basit 1:1 eslemede her hedef alan icin tek edge.",
+      note: "1:1 alan eslemeleri icin mip_create_and_import_flow'a links:[{sourcePath,targetPath}] listesi verilir; MCP data.mappings + data.transformations'i otomatik uretir (concat gibi fonksiyonel donusumler icin ham data verilebilir)."
+    }
+  },
+
   validation: {
     description: "mip_create_and_import_flow bu kurallari import ONCESI otomatik kontrol eder ve ihlalde HATA firlatir (deploy'da patlamadan once yakalar). Flow uretirken bu kurallara uy.",
     errors: [
@@ -402,14 +441,17 @@ export const MIP_FLOW_SCHEMA = {
       "E4 Tum edge source/target degerleri var olan bir node id'sine isaret etmeli (yetim edge).",
       "E5 Node id'leri benzersiz olmali.",
       "E6 Flow'da tam olarak >=1 processStart olmali.",
-      "E7 processErrorSubflow varsa, ic node'lari (StartError/EndError) parentNode ile ona bagli olmali."
+      "E7 processErrorSubflow varsa, ic node'lari (StartError/EndError) parentNode ile ona bagli olmali.",
+      "E8 processGraphicalMapping node'unda GraphicalMappingState.mappingName BOS olamaz (bagli flow-mapping adi)."
     ],
     warnings: [
       "W1 conditionType:'Expression' ve conditionValue string sabit iceriyorsa tek tirnak onerilir (== OK -> == 'OK').",
       "W2 Edge'lerde type:'buttonedge' yoksa uyari (MIP tolere edebilir ama canonical degil).",
       "W3 processCondition harici node'lardan cikan normal edge'de sourceHandle:'normal-source' onerilir.",
       "W4 Ayni conditionName bir condition node icinde birden fazla kez kullanilmis (belirsiz dal).",
-      "W5 processCondition default dal icermiyor — eslesmeyen mesaj sessizce duser. Bilincli degilse default ekle."
+      "W5 processCondition default dal icermiyor — eslesmeyen mesaj sessizce duser. Bilincli degilse default ekle.",
+      "W6 Bilinmeyen objectType (KB nodeTypes'ta yok) — yazim hatasi veya desteklenmeyen node.",
+      "W7 processGraphicalMapping var — mappingName'e karsilik gelen flow-mapping + schema resource'lari import paketine dahil edilmeli (mip_create_and_import_flow flowMappings alani)."
     ]
   },
 
@@ -419,11 +461,13 @@ export const MIP_FLOW_SCHEMA = {
     "flowLocked: 0 olmalı (1 = kilitli flow, düzenlenemez).",
     "position değerleri UI'da düzgün görünüm için 300px aralıklı set edilmeli (x: 0, 300, 600, 900...).",
     "Paralel branch'lerde y koordinatı değiştirilmeli (üst: y:0, alt: y:150).",
-    "KRITIK — EDGE TIPI: TUM edge'ler type:'buttonedge' tasir. Eski 'style' objesini (strokeWidth/zIndex) YAZMA — gercek flow'larda yok. Normal edge'lerde sourceHandle:'normal-source' bulunur; condition edge'lerinde bulunmaz.",
-    "KRITIK — CONDITION WIRING: processCondition dallari OTOMATIK olusmaz. Her conditionsRows satiri icin ELLE bir edge yaz: edge.conditionId = row.edgeId ('<condNodeId>--<hedefId>' cift tire) BIREBIR eslesmeli, edge.label = row.conditionName. Ayrica TAM 1 default satir (isDefaultCondition:true, conditionType:'', conditionValue:'') + onun edge'i ZORUNLU. Eksikse deploy patlar. Tam ornek: flowTemplates.conditionFlow ve twoConditionsFlow.",
+    "KRITIK — EDGE TIPI: TUM edge'ler type:'buttonedge' tasir. Eski 'style' objesini (strokeWidth/zIndex) YAZMA — gercek flow'larda yok. TUM edge'lerde (normal VE condition) sourceHandle:'normal-source' bulunur (v1.16 duzeltmesi — eski KB 'condition edge'de yok' diyordu, YANLIS). Condition edge ek olarak conditionId+label tasir.",
+    "KRITIK — CONDITION WIRING: processCondition dallari OTOMATIK olusmaz. Her conditionsRows satiri icin ELLE bir edge yaz: type:'buttonedge', sourceHandle:'normal-source', edge.conditionId = row.edgeId ('<condNodeId>--<hedefId>' cift tire) BIREBIR eslesmeli, edge.label = row.conditionName. Ayrica TAM 1 default satir (isDefaultCondition:true, conditionType:'', conditionValue:'') + onun edge'i ZORUNLU. Eksikse deploy patlar. Tam ornek: flowTemplates.conditionFlow ve twoConditionsFlow.",
     "KRITIK — CONDITION EXPRESSION: conditionValue string sabit karsilastirmasi tek tirnak ister: \"${exchangeProperty.route} == 'OK'\". Tirnaksiz (== OK) Camel'da patlar. Condition genelde body'yi degil, onceden processSetContext/processScript ile set edilmis exchangeProperty'yi okur.",
     "KRITIK — IKI CONDITION: Ard arda iki processCondition tamamen desteklenir; her biri BAGIMSIZ node + kendi edge seti + kendi default dali. Ikincinin girisine birincinin bir dalindan normalEdge ile gelinir. Bkz. flowTemplates.twoConditionsFlow.",
     "KRITIK — ERROR SUBFLOW: processErrorSubflow container type:'error' (special DEGIL); processStartError/processEndError ve ic node'lar parentNode:'<containerId>' + extent:'parent' tasir. Ana flow ile edge ile baglanmaz. Bkz. flowTemplates.errorSubflowFragment.",
+    "v1.16 YENI NODE'LAR: processGraphicalMapping (gorsel esleme — flow-mapping nesnesine mappingName ile baglanir, bkz. graphicalMapping bolumu), processMCP (harici MCP server tool cagrisi — MCPState.tool; server /api/mcp-servers'ta senkronize olmali), processXIProxy (MIP->SAP XI/PI proxy gonderimi — XIProxyState; XI System/PO baglantisi Sap-Connections'ta tanimli olmali). processStart connectorType'a SAPXI (SAP->MIP XI proxy sender) eklendi.",
+    "GRAPHICAL MAPPING deploy sarti: processGraphicalMapping kullanan flow'da mappingName ile ayni isimde bir flow-mapping VE kaynak/hedef schema resource'lari import paketine dahil edilmeli. mip_create_and_import_flow'un flowMappings + resources alanlarini kullan; aksi halde flow acilir ama esleme bos/deploy hatali olur.",
     "Credential/resource referansları (basicAuthResourceName, scriptPath, vb.) MIP'te önceden tanımlı olmalıdır.",
     "Groovy script yazarken MUTLAKA 'def Exchange executeMessage(Exchange message)' imzasini kullan. message.in.body degil, message.getIn().getBody(String.class) kullan. Her zaman message'i return et.",
     "Groovy'de body okuma: message.getIn().getBody(String.class) | body yazma: message.getIn().setBody(...) | property: message.setProperty/getProperty | header: message.getIn().setHeader/getHeader",
@@ -556,6 +600,23 @@ export function validateFlow(flowData) {
   // parentNode'u var olmayan container'a isaret eden node
   for (const n of nodes.filter(x => x.parentNode)) {
     if (!nodeIds.has(n.parentNode)) errors.push(`E7 Node '${n.id}' parentNode:'${n.parentNode}' var olmayan bir node'a isaret ediyor.`);
+  }
+
+  // W6 — taninmayan objectType (yazim hatasi / desteklenmeyen yeni node yakalama)
+  const knownTypes = new Set(Object.keys(MIP_FLOW_SCHEMA.nodeTypes).filter(k => k !== "conditionEdge"));
+  for (const n of nodes) {
+    if (!knownTypes.has(n.data.objectType)) {
+      warnings.push(`W6 Node '${n.id}' bilinmeyen objectType:'${n.data.objectType}'. Yazim hatasi olabilir veya KB'de tanimli degil (nodeTypes'a bak).`);
+    }
+  }
+
+  // W7 — graphical mapping node'u var ama esleme paketi bu flowData'da yok (flow-mappings
+  // ayri tasinir). mip_create_and_import_flow flowMappings alaniyla bunu ayrica dogrular;
+  // burada sadece hatirlatma: mappingName'e karsilik gelen bir flow-mapping import edilmeli.
+  for (const n of nodes.filter(n => n.data.objectType === "processGraphicalMapping")) {
+    const mn = (((n.data.connectorData || {}).GraphicalMappingState || {}).mappingName) || "";
+    if (!mn) errors.push(`E8 processGraphicalMapping '${n.id}' GraphicalMappingState.mappingName BOS. Bagli flow-mapping adini ver.`);
+    else warnings.push(`W7 processGraphicalMapping '${n.id}' -> mappingName:'${mn}'. Bu isimde bir flow-mapping (+ kaynak/hedef schema resource'lari) import paketine dahil edilmeli, yoksa esleme bos kalir. mip_create_and_import_flow flowMappings alanini kullan.`);
   }
 
   return { errors, warnings };

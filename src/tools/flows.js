@@ -6,6 +6,7 @@ import path from "path";
 import { DOWNLOAD_DIR } from "../config.js";
 import { saveFile, extractFilename } from "../util.js";
 import { MIP_FLOW_SCHEMA, validateFlow } from "../kb/flowSchema.js";
+import { buildFlowMapping, inferType, inferDataFormat } from "../graphicalMapping.js";
 
 const tools = [
   // ── Integration Flow ──
@@ -86,7 +87,7 @@ const tools = [
       properties: {
         section: {
           type: "string",
-          description: "Belirli bir bolum getir. Gecerli degerler: 'flowStructure' | 'nodeSchema' | 'edgeSchema' | 'nodeTypes' | 'expressionLanguage' | 'flowTemplates' | 'validation' | 'importantNotes' | 'all' (varsayilan: 'all'). Condition/edge wiring icin: 'edgeSchema' + 'flowTemplates'. Deploy hatalarini onlemek icin: 'validation'.",
+          description: "Belirli bir bolum getir. Gecerli degerler: 'flowStructure' | 'nodeSchema' | 'edgeSchema' | 'nodeTypes' | 'expressionLanguage' | 'flowTemplates' | 'graphicalMapping' | 'validation' | 'importantNotes' | 'all' (varsayilan: 'all'). Condition/edge wiring icin: 'edgeSchema' + 'flowTemplates'. Gorsel esleme icin: 'graphicalMapping'. Deploy hatalarini onlemek icin: 'validation'.",
           default: "all"
         }
       },
@@ -115,6 +116,35 @@ Diger node tipleri icin kural yok — SOAP Start (Sender) ozel.`,
         flow: {
           type: "object",
           description: "Oluşturulacak flow tanımı. flowId, flowName, flowPackageId, flowData (array) alanları zorunlu."
+        },
+        resources: {
+          type: "array",
+          description: "(opsiyonel) Flow ile birlikte import edilecek resource dosyalari (graphical mapping icin kaynak/hedef schema xsd/xml/json; ayrica xslt/groovy/wsdl). Her biri: { name, filePath, resourceType?, dataFormat? }. resourceType/dataFormat verilmezse dosya uzantisindan cikarilir.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "MIP'teki resource adi (orn 'order.xsd')" },
+              filePath: { type: "string", description: "Yerel dosya yolu (icerik base64 gomulur)" },
+              resourceType: { type: "string", description: "xsd|xml|json|xslt|groovy|wsdl (opsiyonel)" },
+              dataFormat: { type: "string", description: "XML|JSON|NONE (opsiyonel)" }
+            },
+            required: ["name", "filePath"]
+          }
+        },
+        flowMappings: {
+          type: "array",
+          description: "(opsiyonel, v1.16) processGraphicalMapping node'lari icin gorsel esleme tanimlari. Her biri: { name (==node'daki mappingName), sourceSchema:{name,resourceType?}, targetSchema:{name,resourceType?}, links:[{sourcePath,targetPath,targetIsArray?}] }. sourcePath/targetPath = sema alan yolu (orn 'Header/MessageId'). Karmasik/fonksiyonel esleme icin links yerine ham 'data':{mappings,transformations} verilebilir. Referans verilen schema'lar 'resources' ile birlikte gonderilmeli.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              sourceSchema: { type: "object", description: "{ name, resourceType? }" },
+              targetSchema: { type: "object", description: "{ name, resourceType? }" },
+              links: { type: "array", items: { type: "object", properties: { sourcePath: { type: "string" }, targetPath: { type: "string" }, targetIsArray: { type: "boolean" } }, required: ["sourcePath", "targetPath"] } },
+              data: { type: "object", description: "ham {mappings,transformations} (links yerine, ileri kullanim)" }
+            },
+            required: ["name", "sourceSchema", "targetSchema"]
+          }
         },
         skipValidation: {
           type: "boolean",
@@ -202,6 +232,24 @@ const handlers = {
         throw new Error("flow.flowId, flow.flowName ve flow.flowPackageId zorunludur.");
       }
 
+      // Graphical mapping tutarliligi: her processGraphicalMapping node'unun mappingName'i
+      // icin flowMappings'te bir tanim olmali (deploy'da esleme bulunamamasini onler).
+      const flowMappingsIn = Array.isArray(args.flowMappings) ? args.flowMappings : [];
+      if (args.skipValidation !== true && Array.isArray(flowDef.flowData)) {
+        const gmNames = flowDef.flowData
+          .filter(n => n && n.data && n.data.objectType === "processGraphicalMapping")
+          .map(n => (((n.data.connectorData || {}).GraphicalMappingState || {}).mappingName) || "");
+        const provided = new Set(flowMappingsIn.map(m => m.name));
+        const missing = [...new Set(gmNames)].filter(nm => nm && !provided.has(nm));
+        if (missing.length) {
+          throw new Error(
+            "Graphical mapping HATASI — import edilmedi: su processGraphicalMapping mappingName'leri icin flowMappings tanimi verilmedi: " +
+            missing.join(", ") + ". Her biri icin flowMappings'e { name, sourceSchema, targetSchema, links } ekle ve schema dosyalarini resources ile gonder. " +
+            "(Kasitli atlamak icin skipValidation:true.)"
+          );
+        }
+      }
+
       // Import ONCESI dogrulama — deploy'da patlayan edge/condition hatalarini yakala.
       // args.skipValidation === true ile atlanabilir.
       if (args.skipValidation !== true) {
@@ -242,7 +290,24 @@ const handlers = {
       }];
       zip.folder("flows").file(`flows.${ts}.json`, JSON.stringify([flowDef]));
       zip.folder("packages").file(`packages.${ts}.json`, JSON.stringify(packageObj));
-      zip.folder("resources").file(`resources.${ts}.json`, JSON.stringify([]));
+
+      // resources/: verilen schema/xslt/groovy/wsdl dosyalarini base64 gomerek paketle
+      // (graphical mapping'in kaynak/hedef sema'lari da buradan gelir).
+      const resourceObjs = [];
+      for (const r of (Array.isArray(args.resources) ? args.resources : [])) {
+        if (!r || !r.filePath) throw new Error("resources[].filePath zorunlu.");
+        if (!fs.existsSync(r.filePath)) throw new Error(`resource dosyasi bulunamadi: ${r.filePath}`);
+        const resourceType = r.resourceType || inferType(r.name || r.filePath);
+        resourceObjs.push({
+          resourceName: r.name || path.basename(r.filePath),
+          flowId: flowDef.flowId,
+          resourceType,
+          version: 1,
+          dataFormat: r.dataFormat || inferDataFormat(resourceType),
+          resourceData: fs.readFileSync(r.filePath).toString("base64"),
+        });
+      }
+      zip.folder("resources").file(`resources.${ts}.json`, JSON.stringify(resourceObjs));
 
       const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
       const zipPath = path.join(DOWNLOAD_DIR, `create-flow-${flowDef.flowId}-${ts}.zip`);
@@ -253,7 +318,33 @@ const handlers = {
       const res = await axios.post(`${BASE_URL}/api/packages/flows/import`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Flow '${flowDef.flowId}' başarıyla oluşturuldu ve MIP'e import edildi.\nSonuç: ${JSON.stringify(res.data)}`;
+
+      // Graphical mapping: flow-mapping'ler zip ile DEGIL, import SONRASI POST /api/flow-mappings
+      // ile olusturulur — cunku her mapping schema resource ID'lerine ihtiyac duyar ve bu ID'ler
+      // ancak resources import edildikten sonra atanir (zip icinde ID null olur -> 409).
+      let mappingMsg = "";
+      if (flowMappingsIn.length) {
+        const rres = await axios.get(`${BASE_URL}/api/resources`, { headers, params: { paginationPage: 0, paginationSize: 5000 } });
+        const rdata = rres.data;
+        const rlist = (Array.isArray(rdata) ? rdata : (rdata.content || [])).filter(r => r.flowId === flowDef.flowId);
+        const ridByName = {};
+        for (const r of rlist) ridByName[r.resourceName] = r.id;
+        const created = [];
+        for (const m of flowMappingsIn) {
+          const fm = buildFlowMapping({ ...m, flowId: flowDef.flowId });
+          const sid = ridByName[fm.sourceSchemaResource.name];
+          const tid = ridByName[fm.targetSchemaResource.name];
+          if (sid == null) throw new Error(`flowMapping '${fm.name}': kaynak schema resource '${fm.sourceSchemaResource.name}' import edilen resource'lar arasinda yok. 'resources' ile gonderdiginden emin ol.`);
+          if (tid == null) throw new Error(`flowMapping '${fm.name}': hedef schema resource '${fm.targetSchemaResource.name}' bulunamadi.`);
+          fm.sourceSchemaResourceId = sid;
+          fm.targetSchemaResourceId = tid;
+          await axios.post(`${BASE_URL}/api/flow-mappings`, fm, { headers });
+          created.push(`${fm.name} (src#${sid} -> tgt#${tid})`);
+        }
+        mappingMsg = `\nGraphical mapping(ler) olusturuldu: ${created.join(", ")}`;
+      }
+
+      return `Flow '${flowDef.flowId}' başarıyla oluşturuldu ve MIP'e import edildi.${mappingMsg}\nSonuç: ${JSON.stringify(res.data)}`;
     },
 };
 

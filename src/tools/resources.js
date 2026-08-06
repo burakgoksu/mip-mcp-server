@@ -131,7 +131,9 @@ const handlers = {
     },
 
     mip_list_resources: async (args, headers) => {
-      const res = await axios.get(`${BASE_URL}/api/resources`, { headers });
+      // v1.16: /api/resources sayfali doner ({content}, varsayilan 25) — flowId filtresinin
+      // dogru calismasi icin buyuk sayfa iste.
+      const res = await axios.get(`${BASE_URL}/api/resources`, { headers, params: { paginationPage: 0, paginationSize: 5000 } });
       let resources = res.data?.content ?? res.data;
       if (args.flowId) {
         resources = resources.filter(r => r.flowId === args.flowId);

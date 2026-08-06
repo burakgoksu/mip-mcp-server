@@ -4,6 +4,15 @@ MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Plat
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
+## What's new in 1.2.0 — v1.16 flow KB: graphical mapping, new nodes & a deploy-breaker fix
+
+Analyzed **140 fresh sample flows** (MIP v1.16) and updated the internal flow knowledge base (`src/kb/flowSchema.js`) + `mip_create_and_import_flow` accordingly:
+
+- **Deploy-breaker fix (condition edges):** real v1.16 condition edges carry `sourceHandle:"normal-source"` **together with** `conditionId` + `label` — the KB previously said condition edges must *not* carry `sourceHandle`. Generated condition flows now match the real format (a condition edge = a normal edge + `conditionId` + `label`). Templates + validator updated. Verified against all 140 flows: `validateFlow` produces **zero** false errors (the one flagged flow has a genuine orphan edge).
+- **3 new node types documented:** `processGraphicalMapping` (`GraphicalMappingState.mappingName`), `processMCP` (`MCPState.tool` — calls a tool on a synced MCP server), `processXIProxy` (`XIProxyState` — MIP→SAP XI/PI proxy). New Start `connectorType: SAPXI`. `validateFlow` now also warns on unknown `objectType` (W6).
+- **Graphical mapping generation + import** (`src/graphicalMapping.js` + `mip_create_and_import_flow`): a new `flowMappings` input (`{name, sourceSchema, targetSchema, links:[{sourcePath,targetPath}]}`) plus `resources` (schema files). The tool bundles the schema resources, imports the flow, resolves the new resource IDs, and creates each graphical mapping via `POST /api/flow-mappings` (they can't ride in the import zip — the mapping needs resource IDs assigned at import). `buildFlowMapping` output is byte-identical to real exports. New KB section `graphicalMapping`.
+- **Fix:** `mip_list_resources` now requests a large page (v1.16 `/api/resources` is paginated, default 25).
+
 ## What's new in 1.1.9 — JWT credential sync
 
 Completes gateway sync with the JWT credential type (mirrors the basic-auth trio from 1.1.8):
