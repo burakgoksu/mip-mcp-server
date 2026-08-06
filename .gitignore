@@ -14,3 +14,6 @@ Thumbs.db
 _verify.mjs
 _baseline.json
 _*.mjs
+
+# Local flow export samples (analysis input, large binaries)
+new-sample-flow/
