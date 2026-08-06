@@ -11,6 +11,7 @@ import xiQueues from "./tools/xiQueues.js";
 import rfcExplorer from "./tools/rfcExplorer.js";
 import soaServices from "./tools/soaServices.js";
 import apiManagement from "./tools/apiManagement.js";
+import apiManagementSync from "./tools/apiManagementSync.js";
 import resources from "./tools/resources.js";
 import flows from "./tools/flows.js";
 import certsKeystores from "./tools/certsKeystores.js";
@@ -39,6 +40,7 @@ const MODULES = [
   rfcExplorer,
   soaServices,
   apiManagement,
+  apiManagementSync,
   counters,
   alertConfig,
   managementHealth,

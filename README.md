@@ -1,8 +1,19 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests). **142 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **147 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
+
+## What's new in 1.1.8 — Gateway ↔ Service User sync
+
+Syncs MIP **service users** (and their basic-auth credentials) into the APISIX gateway as consumers. This is the missing link that makes a gateway consumer actually usable: a standalone consumer passes gateway auth but the MIP **backend** rejects it (`Invalid user authorization`) because it validates the forwarded principal against a real service user. Syncing solves that.
+
+- **`mip_sync_service_user_to_gateway`** — `POST /api/api-management/sync/service-users/{id}`. `includeCredentials` (default true) copies the user's basic-auth credential so the gateway consumer can actually authenticate. Optional `consumerUsername`, `onConflict` (`ERROR`/`SKIP`).
+- **`mip_unsync_service_user_from_gateway`** — `DELETE …/{id}`. `strategy`: `ERROR` (default; fails if credentials still synced), `CASCADE` (remove credentials too), `RETAIN_CREDENTIALS`.
+- **`mip_list_service_user_basic_auth_credentials`** — `GET /api/service-users/{id}/basic-authentication-credentials`.
+- **`mip_sync_basic_auth_credential_to_gateway`** / **`mip_unsync_basic_auth_credential_from_gateway`** — sync/unsync a single basic-auth credential (`…/sync/basic-authentication-credentials/{id}`).
+
+Verified live with full round-trips (sync → consumer appears → unsync `CASCADE` → consumer gone). Demonstrated end-to-end: after syncing, an authenticated request passes both the gateway and the MIP backend.
 
 ## What's new in 1.1.7 — Service Users v1.16 compatibility
 
