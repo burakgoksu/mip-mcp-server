@@ -1,6 +1,6 @@
 # mip-mcp-server
 
-MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages, deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **150 tools** in total.
+MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages (incl. **graphical mapping** generation), deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Operations** (Kafka queues, EDI schemas, SAP connections, XI queues, RFC explorer, SOA services), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **150 tools** in total.
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
@@ -373,14 +373,14 @@ Add to your `.mcp.json` or Claude Code settings:
 
 ## Available Tools
 
-**123 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
+**150 tools.** Naming convention is `mip_<verb>_<noun>`; list/create/update/delete groups follow the same shape. Reads return pretty JSON; writes return a short confirmation.
 
 ### Flows & Packages
 
 | Tool | Description |
 |---|---|
 | `mip_get_flow_schema` | Returns the embedded MIP flow KB (node types, edge/condition wiring, templates, expression language, validation, safety notes). **Call this before building any flow.** |
-| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers |
+| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers. **Auto-normalizes node ids to `dndnode_*`** (v1.16 deploy requirement). Optional `resources` (schema/xslt/…) + `flowMappings` (graphical mapping: `links:[{sourcePath,targetPath}]`) to create graphical-mapping flows in one shot |
 | `mip_export_packages_and_flows` | Exports packages and flows as a zip |
 | `mip_import_packages_and_flows` | Imports packages and flows from a zip |
 
@@ -426,7 +426,9 @@ Add to your `.mcp.json` or Claude Code settings:
 | Tool | Description |
 |---|---|
 | `mip_list_service_users` | Lists MIP service users (pagination/search) |
-| `mip_create_service_user` | Creates a MIP user with roles (`developer`, `ui-user`, `monitoring`, `admin`, `service-user`) |
+| `mip_list_pure_service_users` | (v1.16) Only `SERVICE-USER`-role users (the "Service Users" list) |
+| `mip_list_platform_users` | (v1.16) Users with developer/ui-user/monitoring/admin roles (the "MDP Integration Platform Users" list) |
+| `mip_create_service_user` | Creates a MIP user with roles (`developer`, `ui-user`, `monitoring`, `admin`, `service-user`); sends both `role`/`roles` for old+new compatibility |
 | `mip_update_service_user` | Updates a user's email / password / roles |
 | `mip_delete_service_user` | Deletes a service user |
 | `mip_toggle_service_user_lock` | Locks / unlocks a service user account |
@@ -504,6 +506,71 @@ Add to your `.mcp.json` or Claude Code settings:
 |---|---|
 | `mip_list_oftp2_connections` / `mip_create_oftp2_connection` / `mip_update_oftp2_connection` / `mip_delete_oftp2_connection` | CRUD for OFTP2 connections (own/partner SSID·SFID·password, virtual file name, flags; **requires** a partner certificate + own keystore ID) |
 
+### Operations — Queues (Kafka)
+
+| Tool | Description |
+|---|---|
+| `mip_list_kafka_topics` | Kafka topics with cluster/status/producer·consumer counts (`scope` MIP or ALL) |
+| `mip_get_kafka_topic_detail` | Brokers, partitions, replication, retention + the MIP flows using the topic |
+| `mip_update_kafka_topic` | Modifies real Kafka topic config (retention, …) on `editable` topics |
+
+### Operations — EDI Schemas
+
+| Tool | Description |
+|---|---|
+| `mip_list_edi_schemas` | EDI schema resources (EDIFACT/X12/… · xsd/xslt) |
+| `mip_upload_edi_schema` / `mip_reupload_edi_schema` | Upload / update an EDI schema (multipart) |
+| `mip_delete_edi_schema` / `mip_download_edi_schema` | Delete / download by id |
+
+### Operations — SAP Connections (SOA / PO / XI Systems)
+
+| Tool | Description |
+|---|---|
+| `mip_list/create/update/delete_soa_connection` + `mip_set_soa_connection_enabled` | SOA (SAP web service) connections |
+| `mip_list/create/update/delete_po_connection` + `mip_set_po_connection_enabled` | XI Proxy → PO (Process Orchestration) connections |
+| `mip_list/create/update/delete_xi_system` + `mip_test_xi_system` | XI Proxy → Systems (business systems) + connection test |
+
+### Operations — XI Queues (SAP XI/PI messages)
+
+| Tool | Description |
+|---|---|
+| `mip_list_xi_queue_messages` / `mip_get_xi_queue_summary` | List (filter status/qos/queue/interface) / summary (blocked queues + counts) |
+| `mip_get_xi_queue_payload` | Message payload by id |
+| `mip_retry_xi_queue_message` / `mip_cancel_xi_queue_message` | Requeue / cancel a stuck message |
+
+### Operations — RFC Explorer
+
+| Tool | Description |
+|---|---|
+| `mip_test_sap_connection` | RFC handshake (saved `destinationId` or inline ashost/sysnr/client/user/password) |
+| `mip_browse_rfcs` | Search RFC/BAPI functions by SAP mask (`*` wildcard required, e.g. `STFC*`) |
+| `mip_get_rfc_interface` | A function's import/export/changing params, tables, structures |
+| `mip_list_imported_sap_objects` | SAP objects materialized into MIP for a destination |
+
+### Operations — SOA Services
+
+| Tool | Description |
+|---|---|
+| `mip_list_soa_services` / `mip_list_available_soa_services` | Imported services / services discoverable on SAP (live) |
+| `mip_import_soa_services` | Import all (or named subset) into MIP |
+| `mip_get_soa_service_wsdl` | A service's WSDL (`refresh=true` re-fetches from SAP) |
+
+### API Management (APISIX gateway)
+
+| Tool | Description |
+|---|---|
+| `mip_list/create/update/delete_api_route` | Routes. Plugin shortcuts: `rateLimit`, `ipWhitelist`, `allowedConsumers`, `openIdConnect`, `basicAuth` (+ raw `plugins`) |
+| `mip_list/create/update/delete_api_consumer` | Consumers (optional BASIC/JWT credential), keyed by `username` |
+| `mip_search_rejected_requests` | Gateway rejection log (default last 24h; filter clientIp/uri/status/consumer) |
+
+### API Management — Sync (MIP identities → gateway)
+
+| Tool | Description |
+|---|---|
+| `mip_sync_service_user_to_gateway` / `mip_unsync_service_user_from_gateway` | Sync a MIP service user into the gateway as a consumer (`includeCredentials`; unsync `strategy` ERROR/CASCADE/RETAIN_CREDENTIALS). Needed so the backend recognizes the consumer |
+| `mip_list_service_user_basic_auth_credentials` / `mip_sync/unsync_basic_auth_credential_(to\|from)_gateway` | List + sync/unsync a single BASIC credential |
+| `mip_list_service_user_jwt_credentials` / `mip_sync/unsync_jwt_credential_(to\|from)_gateway` | List + sync/unsync a single JWT credential |
+
 ### Editors
 
 | Tool | Description |
@@ -573,12 +640,51 @@ enable it, then search that flow for messages where UserName = test_user in the 
 Create a global flow config isSalesOrderReportFileExists = No, applied globally.
 ```
 
+**Graphical mapping flows**
+```
+Create a flow F_ORDER_MAP in P_DEMO: REST POST /orders → graphical mapping → End, using
+order_in.xsd and order_out.xsd (I'll give the files). Map Order/CustomerName → Invoice/BuyerName
+and Order/Qty → Invoice/Quantity, then deploy it.
+```
+```
+In the F_ORDER_MAP graphical mapping, set the target Status field to a constant "OK" and
+multiply Qty by 3.
+```
+
 **Destinations**
 ```
 Create a PostgreSQL JDBC destination demo_pg (jdbc:postgresql://host:5432/db) with user pg/pass.
 ```
 ```
 Add an MCP server pointing to https://mcp.deepwiki.com/sse, sync it, and list its tools.
+```
+
+**Operations (Kafka / EDI / SAP)**
+```
+Show the Kafka topics used by MIP flows, then give me the detail (brokers, partitions, retention)
+for topic orders on the mip cluster.
+```
+```
+Upload edi/ORDERS_D96A.xsd as an EDIFACT EDI schema, then list the EDI schemas.
+```
+```
+On RFC destination S4H, browse RFCs matching BAPI_PO_*, then show the interface of
+BAPI_PO_CREATE1.
+```
+```
+List the SOA services on connection SAP, import zycilgi_ws_001, and show its WSDL.
+```
+```
+Show the blocked XI queue messages, then retry message 12345.
+```
+
+**API Management (gateway)**
+```
+Create a service user gw_partner, sync it to the gateway, then create a route /http/partner-api
+to mip-backend:9000 (GET+POST) with basic auth, rate limit 100/min, and only gw_partner allowed.
+```
+```
+Show the rejected gateway requests in the last 24h with status 403.
 ```
 
 **Editors**
