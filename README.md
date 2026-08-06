@@ -8,7 +8,7 @@ MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Plat
 
 The **API Management** menu — MIP's APISIX-based API gateway. Covers the three tabs (`/api/api-management/*`):
 
-- **Routes** — `mip_list_api_routes` / `mip_create_api_route` / `mip_update_api_route` / `mip_delete_api_route`. A route = `id`, `name`, `uri` (gateway path), `methods`, upstream `nodes` (host:port → weight), and a raw APISIX `plugins` object (`limit-count`, `ip-restriction`, `consumer-restriction`, `basic-auth`, `openid-connect`, …). `plugins` defaults to `{}` (the gateway rejects null).
+- **Routes** — `mip_list_api_routes` / `mip_create_api_route` / `mip_update_api_route` / `mip_delete_api_route`. A route = `id`, `name`, `uri` (gateway path), `methods`, upstream `nodes` (host:port → weight), and plugins. Plugins have **friendly shortcuts** matching the UI toggles — `rateLimit {count, window}`, `ipWhitelist [cidr…]`, `allowedConsumers [username…]`, `openIdConnect {discovery, client_id, client_secret}`, `basicAuth: true` — plus a raw `plugins` escape hatch (merged over the shortcuts) for any other APISIX plugin. `plugins` defaults to `{}` (the gateway rejects null).
 - **Consumers** — `mip_list_api_consumers` / `mip_create_api_consumer` / `mip_update_api_consumer` / `mip_delete_api_consumer`. Create optionally attaches a `BASIC` (password) or `JWT` (key/secret/algorithm) credential; consumers are keyed by `username`.
 - **Rejected Requests** — `mip_search_rejected_requests`: paginated gateway-rejection log, defaults to last 24h, filter by `clientIp`/`requestUri`/`statusCode`/`consumerName`.
 

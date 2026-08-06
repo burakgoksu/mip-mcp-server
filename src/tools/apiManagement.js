@@ -10,11 +10,23 @@ import { BASE_URL } from "../config.js";
 const API = `${BASE_URL}/api/api-management`;
 const values = (d) => (Array.isArray(d?.list) ? d.list.map((x) => x.value ?? x) : d);
 
+// Dostça kısayolları (rateLimit/ipWhitelist/allowedConsumers/openIdConnect/basicAuth)
+// APISIX plugin objesine çevir. Ham `plugins` en son merge edilir → aynı anahtarda ileri ayar override eder.
+function buildPlugins(args) {
+  const p = {};
+  if (args.rateLimit?.count) p["limit-count"] = { count: args.rateLimit.count, time_window: args.rateLimit.window ?? 60, rejected_code: args.rateLimit.rejectedCode ?? 429 };
+  if (args.ipWhitelist?.length) p["ip-restriction"] = { message: args.ipMessage || "Access denied", whitelist: args.ipWhitelist };
+  if (args.allowedConsumers?.length) p["consumer-restriction"] = { whitelist: args.allowedConsumers, type: "consumer_name", rejected_code: 403 };
+  if (args.openIdConnect) p["openid-connect"] = args.openIdConnect;
+  if (args.basicAuth) p["basic-auth"] = {};
+  return { ...p, ...(args.plugins || {}) };
+}
+
 // UI: Host+Weight satırlarını APISIX nodes objesine ({ "host:port": weight }) çevir.
 function buildRoute(args) {
   const nodes = {};
   for (const nd of args.nodes || []) if (nd.host) nodes[nd.host] = Number(nd.weight ?? 1);
-  const body = { id: args.id, name: args.name, uri: args.uri, upstream: { type: args.upstreamType || "roundrobin", nodes }, plugins: args.plugins || {} };
+  const body = { id: args.id, name: args.name, uri: args.uri, upstream: { type: args.upstreamType || "roundrobin", nodes }, plugins: buildPlugins(args) };
   if (args.methods?.length) body.methods = args.methods;
   return body;
 }
@@ -35,6 +47,17 @@ function buildConsumer(args) {
 
 const NODE_ITEM = { type: "object", properties: { host: { type: "string", description: "Upstream host:port (ör. 'mip-backend:9000')" }, weight: { type: "number", description: "Ağırlık (varsayılan 1)" } }, required: ["host"] };
 
+// Route'a plugin eklemek için dostça kısayollar (UI'daki 5 toggle) + ham escape-hatch.
+const PLUGIN_PROPS = {
+  rateLimit: { type: "object", description: "Rate Limiting kısayolu (limit-count).", properties: { count: { type: "number", description: "İzin verilen istek sayısı" }, window: { type: "number", description: "Pencere, saniye (varsayılan 60)" }, rejectedCode: { type: "number", description: "Limit aşılınca HTTP kodu (varsayılan 429)" } }, required: ["count"] },
+  ipWhitelist: { type: "array", items: { type: "string" }, description: "IP White List kısayolu (ip-restriction): izinli IP/CIDR (ör. ['192.168.0.0/24'])." },
+  ipMessage: { type: "string", description: "IP reddinde dönecek mesaj (varsayılan 'Access denied')." },
+  allowedConsumers: { type: "array", items: { type: "string" }, description: "Consumer Restriction kısayolu: yalnız bu consumer adları erişebilir." },
+  openIdConnect: { type: "object", description: "OpenID Connect kısayolu (openid-connect).", properties: { discovery: { type: "string" }, client_id: { type: "string" }, client_secret: { type: "string" } }, required: ["discovery", "client_id", "client_secret"] },
+  basicAuth: { type: "boolean", description: "Basic Auth plugin'ini aç (basic-auth): consumer'ların basic-auth kimliğini zorunlu kılar." },
+  plugins: { type: "object", description: "İleri kullanım: ham APISIX plugin objesi. Kısayollarla merge edilir; aynı anahtarda bunu ezer." },
+};
+
 const tools = [
   // ── Routes ──
   {
@@ -45,7 +68,7 @@ const tools = [
   {
     name: "mip_create_api_route",
     description:
-      "Yeni API route oluşturur (POST /api/api-management/routes). uri gateway'de dinlenecek yol (ör. /http/my-api); nodes en az bir upstream host:port. plugins ham APISIX plugin objesidir; UI'daki 5 toggle karşılığı: Rate Limiting = {\"limit-count\":{count:100,time_window:60,rejected_code:429}}; IP White List = {\"ip-restriction\":{message:\"blocked\",whitelist:[\"192.168.0.0/24\"]}}; Consumer Restriction = {\"consumer-restriction\":{whitelist:[\"user1\"],type:\"consumer_name\",rejected_code:403}}; OpenID Connect = {\"openid-connect\":{discovery:\"<url>\",client_id:\"..\",client_secret:\"..\"}}; Basic Auth = {\"basic-auth\":{}}. Birden çok plugin tek objede birleştirilebilir; gateway proxy-rewrite/http-logger'ı kendi ekler.",
+      "Yeni API route oluşturur (POST /api/api-management/routes). uri gateway'de dinlenecek yol (ör. /http/my-api); nodes en az bir upstream host:port. Plugin eklemek için dostça kısayollar kullan: rateLimit, ipWhitelist, allowedConsumers, openIdConnect, basicAuth (UI'daki 5 toggle). Gerekirse plugins ile ham APISIX objesi de verilebilir. Gateway proxy-rewrite/http-logger'ı kendi ekler.",
     inputSchema: {
       type: "object",
       properties: {
@@ -55,14 +78,14 @@ const tools = [
         methods: { type: "array", items: { type: "string" }, description: "HTTP metotları (ör. ['GET','POST']) — boşsa tümü" },
         nodes: { type: "array", items: NODE_ITEM, description: "Upstream düğümleri (host:port + weight)" },
         upstreamType: { type: "string", description: "Load-balance tipi (varsayılan 'roundrobin')" },
-        plugins: { type: "object", description: "Ham APISIX plugin objesi (opsiyonel). Örn Rate Limiting: {\"limit-count\":{count:100,time_window:60,rejected_code:429}}; IP White List: {\"ip-restriction\":{message:\"blocked\",whitelist:[\"1.2.3.0/24\"]}}; Consumer Restriction: {\"consumer-restriction\":{whitelist:[\"user1\"],type:\"consumer_name\",rejected_code:403}}; OpenID: {\"openid-connect\":{discovery,client_id,client_secret}}; Basic Auth: {\"basic-auth\":{}}." },
+        ...PLUGIN_PROPS,
       },
       required: ["id", "name", "uri", "nodes"],
     },
   },
   {
     name: "mip_update_api_route",
-    description: "Bir API route'unu günceller (PUT /api/api-management/routes/{id}). Gönderilen alanlarla route yeniden yazılır (name, uri, methods, nodes, plugins).",
+    description: "Bir API route'unu günceller (PUT /api/api-management/routes/{id}). Gönderilen alanlarla route yeniden yazılır (name, uri, methods, nodes) — plugin'ler de kısayollar (rateLimit/ipWhitelist/allowedConsumers/openIdConnect/basicAuth) veya ham plugins ile yeniden verilir. Not: route tümüyle yeniden yazılır, o yüzden korunmasını istediğin plugin'leri de tekrar gönder.",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,7 +95,7 @@ const tools = [
         methods: { type: "array", items: { type: "string" } },
         nodes: { type: "array", items: NODE_ITEM },
         upstreamType: { type: "string" },
-        plugins: { type: "object" },
+        ...PLUGIN_PROPS,
       },
       required: ["id", "name", "uri", "nodes"],
     },
