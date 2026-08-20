@@ -4,6 +4,12 @@ MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Plat
 
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
+## What's new in 1.2.3 — node names are canonical (stop breaking the flow object)
+
+A node's display name (`data.label`) is **fixed per node type** in MIP — the UI enforces it and it can't be changed. Across 157 real flows every `processSetContext` is labeled exactly `"Set Context"`, every `processScript` `"Script"`, etc. When a generated flow gave a node a custom name (e.g. a Set Context node called `"mail body"`), the JSON no longer matched what the UI enforces and **broke the flow object**.
+
+`mip_create_and_import_flow` now **auto-normalizes every node's `data.label` to the canonical name for its `objectType`** (`normalizeNodeLabels`, right after the node-id normalization) — so whatever name the model gives, the imported flow always carries the correct, UI-consistent name. The KB's node-name guidance and all flow templates were corrected to canonical labels too (they previously taught custom names like "Set route" / "Transform" / "Route"). Edge/branch labels (`conditionName`) stay custom — only node names are fixed. Verified idempotent against all 157 real flows (0 changes).
+
 ## What's new in 1.2.2 — graphical-mapping functions
 
 `mip_create_and_import_flow`'s `flowMappings` now accepts **`functions`** (not just 1:1 `links`) — so the model can build transforming mappings, not just field copies:

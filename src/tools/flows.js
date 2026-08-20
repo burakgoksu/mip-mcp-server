@@ -6,7 +6,7 @@ import path from "path";
 import { DOWNLOAD_DIR } from "../config.js";
 import { saveFile, extractFilename } from "../util.js";
 import { MIP_FLOW_SCHEMA, validateFlow } from "../kb/flowSchema.js";
-import { buildFlowMapping, inferType, inferDataFormat, normalizeNodeIds } from "../graphicalMapping.js";
+import { buildFlowMapping, inferType, inferDataFormat, normalizeNodeIds, normalizeNodeLabels } from "../graphicalMapping.js";
 
 const tools = [
   // ── Integration Flow ──
@@ -251,8 +251,11 @@ const handlers = {
       // DEPLOY-BREAKER FIX: MIP v1.16 deploy'u node id'lerinin 'dndnode_<sayi>' formatinda
       // olmasini ZORUNLU kilar ('start1' gibi id'ler -> bos-sebepli 500). Uygun olmayan
       // id'leri (ve tum edge/condition/parentNode referanslarini) otomatik normalize et.
+      // Ayrica node isimlerini (data.label) objectType'in kanonik ismine sabitle —
+      // MIP'te node ismi UI tarafindan dayatilir, ozel isim flow object'i bozar.
       if (Array.isArray(flowDef.flowData)) {
         flowDef.flowData = normalizeNodeIds(flowDef.flowData);
+        flowDef.flowData = normalizeNodeLabels(flowDef.flowData);
       }
 
       // Graphical mapping tutarliligi: her processGraphicalMapping node'unun mappingName'i

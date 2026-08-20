@@ -154,3 +154,40 @@ export function normalizeNodeIds(flowData) {
     return el;
   });
 }
+
+// ─── Node label normalize (FLOW-OBJECT-BREAKER FIX) ───────────────────────────
+// MIP'te node ismi (data.label) her objectType icin SABIT kanonik degerdir; UI
+// bunu dayatir ve DEGISTIRILEMEZ. Model ozel/aciklayici isim yazarsa (ör.
+// processSetContext'e "mail body") flow object bozulur. 157 gercek flow'dan
+// cikarilan kanonik harita (her objectType tek bir label degeri tasir):
+export const NODE_LABELS = {
+  processStart: "Start", processEnd: "End", processHTTP: "HTTP", processScript: "Script",
+  processSetContext: "Set Context", processGraphicalMapping: "Graphical Mapping", processMCP: "MCP",
+  processConverter: "Converter", processCondition: "Condition", processFile: "File",
+  processErrorSubflow: "Error Subflow", processStartError: "Start Error", processEndError: "End Error",
+  processXSLTMapping: "XSLT Mapping", processJDBC: "JDBC", processMail: "Mail", processFilter: "Filter",
+  processCounter: "Counter", processSOAP: "SOAP", processVDAConverter: "VDA Converter", processJMS: "JMS",
+  processDirect: "Direct", processSplit: "Splitter", processSplitter: "Splitter", processRFC: "SAP RFC",
+  processDelay: "Delay", processDelayer: "Delayer", processKafka: "Kafka", processRabbitMq: "RabbitMQ",
+  processOdata: "OData", processOpcua: "OPC UA", processEdifactConverter: "Edifact Converter",
+  processANSIX12Converter: "ANSI X12 Converter", processGooglePubsub: "Google Pubsub", processMQTT: "MQTT",
+  processSolace: "Solace", processMulticast: "Multicast", processAggregator: "Aggregator", processLoop: "Loop",
+  processEdiExtractor: "EDI Extractor", processBase64Converter: "Base64 Converter",
+  processTradacomsConverter: "Tradacoms Converter", processOdetteConverter: "ODETTE Converter",
+  processEancomConverter: "EANCOM Converter", processAwsS3Storage: "AWS S3 Storage",
+  processAzureQueue: "Azure Storage Queue", processMongoDb: "MongoDB", processSalesforceBulkApi: "Salesforce Bulk API",
+  processSalesforceRestQuery: "Salesforce Rest Query", processAwsQueue: "AWS Simple Queue",
+  processAwsEventBridge: "AWS EventBridge", processAS2: "AS2", processFTP: "FTP", processOFTP2: "OFTP2",
+  processSFTP: "SFTP", processWebdav: "WebDAV", processXIProxy: "XI Proxy",
+};
+
+// Her node'un data.label'ini objectType'a gore kanonik isme sabitle. Model ne
+// verirse versin import edilen flow dogru ismi tasir (bilinmeyen tip -> dokunma).
+export function normalizeNodeLabels(flowData) {
+  if (!Array.isArray(flowData)) return flowData;
+  return flowData.map((el) => {
+    const ot = el && el.data && el.data.objectType;
+    if (!ot || !(ot in NODE_LABELS) || el.data.label === NODE_LABELS[ot]) return el;
+    return { ...el, data: { ...el.data, label: NODE_LABELS[ot] } };
+  });
+}

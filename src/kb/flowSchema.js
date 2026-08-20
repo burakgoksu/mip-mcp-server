@@ -24,7 +24,7 @@ export const MIP_FLOW_SCHEMA = {
       processSteps: [],
       data: {
         objectType: "node tipini belirler (processStart, processHTTP, vb.)",
-        label: "UI'da gösterilen isim",
+        label: "Her objectType icin SABIT kanonik isim (ör. processSetContext→'Set Context', processScript→'Script', processCondition→'Condition', processMail→'Mail', processEnd→'End'). MIP UI bu ismi dayatir; degistirilemez. Ozel/aciklayici isim (ör. SetContext'e 'mail body') YAZMA — flow object'i bozar. mip_create_and_import_flow import oncesi label'lari otomatik kanonik isme cevirir.",
         connectorData: "objectType'a özgü konfigürasyon objesi",
         processTypeIcon: "opsiyonel ikon adı"
       }
@@ -222,7 +222,7 @@ export const MIP_FLOW_SCHEMA = {
       fields: { conditionsRows: [{ edgeId: "<conditionNodeId>--<hedefNodeId>", conditionName: "dal-adi (edge.label ile ayni)", conditionType: "Expression|XPath|JSONPath ('' = default satir)", conditionValue: "${exchangeProperty.status} == 'OK' | XPath | '' (default satir)", isDefaultCondition: false }], nodeId: "opsiyonel" },
       realExample: {
         desc: "GERCEK 4-dalli condition (F_KERVANGIDA_UK_STOCK_ADJS): rootName property'sine gore ERR/FATAL/OK/default. Node + 4 edge birlikte.",
-        conditionNode: { id: "condA", type: "special", data: { objectType: "processCondition", label: "Route", connectorData: { ConditionState: { conditionsRows: [
+        conditionNode: { id: "condA", type: "special", data: { objectType: "processCondition", label: "Condition", connectorData: { ConditionState: { conditionsRows: [
           { edgeId: "condA--nodeErr",  conditionName: "ERR",   conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'ERR'",   isDefaultCondition: false },
           { edgeId: "condA--nodeFatal",conditionName: "FATAL", conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'FATAL'", isDefaultCondition: false },
           { edgeId: "condA--nodeOk",   conditionName: "OK",    conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'",    isDefaultCondition: false },
@@ -259,7 +259,7 @@ export const MIP_FLOW_SCHEMA = {
         "Ana flow ile edge ile BAGLANMAZ — MIP hata olunca otomatik bu subflow'a yonlendirir."
       ],
       realExample: {
-        container: { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Handling", connectorData: null }, position: { x: 1400, y: 400 }, height: 200, width: 1300, processSteps: [] },
+        container: { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Subflow", connectorData: null }, position: { x: 1400, y: 400 }, height: 200, width: 1300, processSteps: [] },
         startError: { id: "err10", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processStartError", label: "Start Error" }, position: { x: 20, y: 40 }, height: 40, width: 160, processSteps: [] },
         endError: { id: "err11", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processEndError", label: "End Error" }, position: { x: 1230, y: 42 }, height: 40, width: 160, processSteps: [] }
       }
@@ -342,7 +342,7 @@ export const MIP_FLOW_SCHEMA = {
       desc: "En basit akis: Start -> Script -> End. Normal edge yapisini gosterir.",
       flowData: [
         { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "REST", restAddress: "/ornek", restMethod: "POST", restAuthenticationAllowDefaultBasicCredentials: true, isSyncEndpoint: true } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "script1", type: "special", data: { objectType: "processScript", label: "Transform", connectorData: { ScriptState: { scriptPath: "transform.groovy", logScriptPayload: true } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "script1", type: "special", data: { objectType: "processScript", label: "Script", connectorData: { ScriptState: { scriptPath: "transform.groovy", logScriptPayload: true } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
         { id: "end1", type: "special", data: { objectType: "processEnd", label: "End", connectorData: null }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-start1normal-source-script1", type: "buttonedge", source: "start1", target: "script1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-script1normal-source-end1", type: "buttonedge", source: "script1", target: "end1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
@@ -353,15 +353,15 @@ export const MIP_FLOW_SCHEMA = {
       desc: "TEK condition, 3 dal (OK / ERR / default). Once SetContext ile 'route' property'si set edilir, sonra condition dallanir. KARMASIK FLOW'DA EN KRITIK SABLON — edgeId<->conditionId eslesmesine ve default dala dikkat.",
       flowData: [
         { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "REST", restAddress: "/route", restMethod: "POST", restAuthenticationAllowDefaultBasicCredentials: true, isSyncEndpoint: true } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "set1", type: "special", data: { objectType: "processSetContext", label: "Set route", connectorData: { SetContextState: { useSimpleQuery: false, contextBody: "", headerRows: [], propertyRows: [{ id: 0, propertyName: "route", propertyType: "XPath", propertyValue: "/Result/Status" }] } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Route", connectorData: { ConditionState: { conditionsRows: [
+        { id: "set1", type: "special", data: { objectType: "processSetContext", label: "Set Context", connectorData: { SetContextState: { useSimpleQuery: false, contextBody: "", headerRows: [], propertyRows: [{ id: 0, propertyName: "route", propertyType: "XPath", propertyValue: "/Result/Status" }] } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Condition", connectorData: { ConditionState: { conditionsRows: [
           { edgeId: "cond1--okEnd",  conditionName: "OK",      conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'",  isDefaultCondition: false },
           { edgeId: "cond1--errEnd", conditionName: "ERR",     conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'ERR'", isDefaultCondition: false },
           { edgeId: "cond1--defEnd", conditionName: "default", conditionType: "",           conditionValue: "",                                   isDefaultCondition: true }
         ] } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "okEnd",  type: "special", data: { objectType: "processEnd", label: "OK End",  connectorData: null }, position: { x: 900, y: 0 },   height: 40, width: 160, processSteps: [] },
-        { id: "errEnd", type: "special", data: { objectType: "processEnd", label: "ERR End", connectorData: null }, position: { x: 900, y: 150 }, height: 40, width: 160, processSteps: [] },
-        { id: "defEnd", type: "special", data: { objectType: "processEnd", label: "Def End", connectorData: null }, position: { x: 900, y: 300 }, height: 40, width: 160, processSteps: [] },
+        { id: "okEnd",  type: "special", data: { objectType: "processEnd", label: "End",  connectorData: null }, position: { x: 900, y: 0 },   height: 40, width: 160, processSteps: [] },
+        { id: "errEnd", type: "special", data: { objectType: "processEnd", label: "End", connectorData: null }, position: { x: 900, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "defEnd", type: "special", data: { objectType: "processEnd", label: "End", connectorData: null }, position: { x: 900, y: 300 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-start1normal-source-set1", type: "buttonedge", source: "start1", target: "set1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-set1normal-source-cond1", type: "buttonedge", source: "set1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-cond1normal-source-okEnd",  type: "buttonedge", source: "cond1", target: "okEnd",  sourceHandle: "normal-source", conditionId: "cond1--okEnd",  label: "OK",      height: 0, width: 0, processSteps: [] },
@@ -374,18 +374,18 @@ export const MIP_FLOW_SCHEMA = {
       desc: "IKI ard arda condition (kullanicinin takildigi senaryo). cond1 (OK/default) -> OK dalindan cond2'ye normalEdge; cond2 (SAP/default). Her condition BAGIMSIZ node + kendi edge seti. Ikinci condition'in default'u da ZORUNLU.",
       flowData: [
         { id: "start1", type: "special", data: { objectType: "processStart", label: "Start", connectorData: { StartState: { connectorType: "Timer", timerCron: "0 0/5 * 1/1 * ? *", isSyncEndpoint: false } } }, position: { x: 0, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Route1", connectorData: { ConditionState: { conditionsRows: [
+        { id: "cond1", type: "special", data: { objectType: "processCondition", label: "Condition", connectorData: { ConditionState: { conditionsRows: [
           { edgeId: "cond1--proc1", conditionName: "OK",      conditionType: "Expression", conditionValue: "${exchangeProperty.route} == 'OK'", isDefaultCondition: false },
           { edgeId: "cond1--end1",  conditionName: "default", conditionType: "",           conditionValue: "",                                  isDefaultCondition: true }
         ] } } }, position: { x: 300, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "proc1", type: "special", data: { objectType: "processScript", label: "Process", connectorData: { ScriptState: { scriptPath: "process.groovy", logScriptPayload: true } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "cond2", type: "special", data: { objectType: "processCondition", label: "SAP gate", connectorData: { ConditionState: { conditionsRows: [
+        { id: "proc1", type: "special", data: { objectType: "processScript", label: "Script", connectorData: { ScriptState: { scriptPath: "process.groovy", logScriptPayload: true } } }, position: { x: 600, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "cond2", type: "special", data: { objectType: "processCondition", label: "Condition", connectorData: { ConditionState: { conditionsRows: [
           { edgeId: "cond2--sapErr", conditionName: "sapError", conditionType: "Expression", conditionValue: "${exchangeProperty.sapMail} == '1'", isDefaultCondition: false },
           { edgeId: "cond2--okEnd",  conditionName: "default",  conditionType: "",           conditionValue: "",                                    isDefaultCondition: true }
         ] } } }, position: { x: 900, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "sapErr", type: "special", data: { objectType: "processMail", label: "Notify", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "SAP error", mailBody: "Hata: ${exchangeProperty.err}", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 1200, y: 150 }, height: 40, width: 160, processSteps: [] },
-        { id: "okEnd", type: "special", data: { objectType: "processEnd", label: "OK End",  connectorData: null }, position: { x: 1200, y: 0 }, height: 40, width: 160, processSteps: [] },
-        { id: "end1",  type: "special", data: { objectType: "processEnd", label: "Skip End", connectorData: null }, position: { x: 600, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "sapErr", type: "special", data: { objectType: "processMail", label: "Mail", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "SAP error", mailBody: "Hata: ${exchangeProperty.err}", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 1200, y: 150 }, height: 40, width: 160, processSteps: [] },
+        { id: "okEnd", type: "special", data: { objectType: "processEnd", label: "End",  connectorData: null }, position: { x: 1200, y: 0 }, height: 40, width: 160, processSteps: [] },
+        { id: "end1",  type: "special", data: { objectType: "processEnd", label: "End", connectorData: null }, position: { x: 600, y: 150 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-start1normal-source-cond1", type: "buttonedge", source: "start1", target: "cond1", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-cond1normal-source-proc1", type: "buttonedge", source: "cond1", target: "proc1", sourceHandle: "normal-source", conditionId: "cond1--proc1", label: "OK",      height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-cond1normal-source-end1",  type: "buttonedge", source: "cond1", target: "end1",  sourceHandle: "normal-source", conditionId: "cond1--end1",  label: "default", height: 0, width: 0, processSteps: [] },
@@ -398,9 +398,9 @@ export const MIP_FLOW_SCHEMA = {
     errorSubflowFragment: {
       desc: "Hata yonetimi grubu. Ana flow node'larina EK olarak eklenir; ana flow ile edge ile baglanmaz. Container type:'error', cocuklar parentNode+extent:'parent'.",
       flowData: [
-        { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Handling", connectorData: null }, position: { x: 0, y: 400 }, height: 220, width: 700, processSteps: [] },
+        { id: "err1", type: "error", data: { objectType: "processErrorSubflow", label: "Error Subflow", connectorData: null }, position: { x: 0, y: 400 }, height: 220, width: 700, processSteps: [] },
         { id: "err10", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processStartError", label: "Start Error", connectorData: null }, position: { x: 20, y: 40 }, height: 40, width: 160, processSteps: [] },
-        { id: "errMail", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processMail", label: "Alert", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "Flow error", mailBody: "Hata olustu", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 250, y: 40 }, height: 40, width: 160, processSteps: [] },
+        { id: "errMail", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processMail", label: "Mail", connectorData: { MailState: { from: "mip@ornek.com", to: "ops@ornek.com", subject: "Flow error", mailBody: "Hata olustu", bodyMimeType: "TEXT/Plain", bodyEncoding: "UTF-8", address: "smtp.ornek.com", port: 25, encryption: "STARTTLS", authentication: "LOGIN", credentialName: "smtp_cred", addAttachments: false, attachments: [] } } }, position: { x: 250, y: 40 }, height: 40, width: 160, processSteps: [] },
         { id: "err11", type: "special", parentNode: "err1", extent: "parent", data: { objectType: "processEndError", label: "End Error", connectorData: null }, position: { x: 500, y: 40 }, height: 40, width: 160, processSteps: [] },
         { id: "reactflow__edge-err10normal-source-errMail", type: "buttonedge", source: "err10", target: "errMail", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] },
         { id: "reactflow__edge-errMailnormal-source-err11", type: "buttonedge", source: "errMail", target: "err11", sourceHandle: "normal-source", height: 0, width: 0, processSteps: [] }
@@ -472,6 +472,7 @@ export const MIP_FLOW_SCHEMA = {
     "KRITIK — CONDITION EXPRESSION: conditionValue string sabit karsilastirmasi tek tirnak ister: \"${exchangeProperty.route} == 'OK'\". Tirnaksiz (== OK) Camel'da patlar. Condition genelde body'yi degil, onceden processSetContext/processScript ile set edilmis exchangeProperty'yi okur.",
     "KRITIK — IKI CONDITION: Ard arda iki processCondition tamamen desteklenir; her biri BAGIMSIZ node + kendi edge seti + kendi default dali. Ikincinin girisine birincinin bir dalindan normalEdge ile gelinir. Bkz. flowTemplates.twoConditionsFlow.",
     "KRITIK — ERROR SUBFLOW: processErrorSubflow container type:'error' (special DEGIL); processStartError/processEndError ve ic node'lar parentNode:'<containerId>' + extent:'parent' tasir. Ana flow ile edge ile baglanmaz. Bkz. flowTemplates.errorSubflowFragment.",
+    "KRITIK — NODE ISMI (data.label): node ismi her objectType icin SABIT kanonik degerdir (processStart→'Start', processSetContext→'Set Context', processScript→'Script', processCondition→'Condition', processMail→'Mail', processEnd→'End', processHTTP→'HTTP', processSplit→'Splitter', processRFC→'SAP RFC', processGraphicalMapping→'Graphical Mapping' …). MIP UI bu ismi dayatir ve KULLANICI DEGISTIREMEZ. Ozel/aciklayici isim (ör. 'Set route', 'mail body', 'Notify', 'Transform') YAZMA — flow object'i bozar. mip_create_and_import_flow import oncesi tum label'lari otomatik kanonik isme normalize eder, yani model yanlis verse bile duzelir.",
     "KRITIK — NODE ID FORMATI (v1.16 DEPLOY-BREAKER): node id'leri 'dndnode_<sayi>' formatinda OLMALI; 'start1'/'cond1' gibi id'ler flow'u ACAR ama DEPLOY'da 'Flow can not deploy. Cause is :' (bos sebepli) 500 verir. Bu, 'flow acilir ama deploy olmaz' sorununun asil sebebiydi. mip_create_and_import_flow bunu import oncesi OTOMATIK duzeltir (tum node id + edge source/target/id/conditionId + conditionsRows.edgeId + parentNode tutarli sekilde yeniden yazilir) — yani model 'start1' verse bile deploy calisir.",
     "v1.16 YENI NODE'LAR: processGraphicalMapping (gorsel esleme — flow-mapping nesnesine mappingName ile baglanir, bkz. graphicalMapping bolumu), processMCP (harici MCP server tool cagrisi — MCPState.tool; server /api/mcp-servers'ta senkronize olmali), processXIProxy (MIP->SAP XI/PI proxy gonderimi — XIProxyState; XI System/PO baglantisi Sap-Connections'ta tanimli olmali). processStart connectorType'a SAPXI (SAP->MIP XI proxy sender) eklendi.",
     "GRAPHICAL MAPPING deploy sarti: processGraphicalMapping kullanan flow'da mappingName ile ayni isimde bir flow-mapping VE kaynak/hedef schema resource'lari import paketine dahil edilmeli. mip_create_and_import_flow'un flowMappings + resources alanlarini kullan; aksi halde flow acilir ama esleme bos/deploy hatali olur.",
