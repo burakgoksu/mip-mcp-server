@@ -12,8 +12,8 @@ const tools = [
       type: "object",
       properties: {
         filter: { type: "string", description: "Opsiyonel: alert adında geçen metin" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },
@@ -64,7 +64,7 @@ const tools = [
       type: "object",
       properties: {
         id: { type: "string", description: "Güncellenecek alertId (mip_list_alerts ile alınır)" },
-        alertName: { type: "string", description: "Yeni ad (opsiyonel)" },
+        alertName: { type: "string", description: "New name (optional)" },
         alertMailList: { type: "string", description: "Yeni alıcı listesi (opsiyonel)" },
         postingFrequency: { type: "string", description: "Yeni cron zamanlaması (opsiyonel)" },
         flowIds: {

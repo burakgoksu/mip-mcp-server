@@ -8,45 +8,45 @@ const tools = [
   // ── Key Store ──
   {
     name: "mip_upload_key_store",
-    description: "Yeni bir key store (.jks) dosyası yükler.",
+    description: "Uploads a new key store (.jks) file.",
     inputSchema: {
       type: "object",
       properties: {
-        filePath: { type: "string", description: "Key store dosyasının tam yolu" },
-        entryName: { type: "string", description: "Key store entry adı" },
+        filePath: { type: "string", description: "Full path of the key store file" },
+        entryName: { type: "string", description: "Key store entry name" },
         entryType: {
           type: "string",
-          description: "Entry tipi: PRIVATE_KEY veya CERTIFICATE",
+          description: "Entry type: PRIVATE_KEY or CERTIFICATE",
         },
-        passphrase: { type: "string", description: "Key store şifresi" },
+        passphrase: { type: "string", description: "Key store passphrase" },
       },
       required: ["filePath", "entryName", "entryType", "passphrase"],
     },
   },
   {
     name: "mip_reupload_key_store",
-    description: "Mevcut bir key store'u günceller.",
+    description: "Updates an existing key store.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Güncellenecek key store ID" },
-        filePath: { type: "string", description: "Yeni key store dosyasının tam yolu" },
-        entryName: { type: "string", description: "Key store entry adı" },
-        entryType: { type: "string", description: "Entry tipi: PRIVATE_KEY veya CERTIFICATE" },
-        passphrase: { type: "string", description: "Mevcut şifre" },
-        newPassphrase: { type: "string", description: "Yeni şifre (opsiyonel)" },
+        id: { type: "string", description: "ID of the key store to update" },
+        filePath: { type: "string", description: "Full path of the new key store file" },
+        entryName: { type: "string", description: "Key store entry name" },
+        entryType: { type: "string", description: "Entry type: PRIVATE_KEY or CERTIFICATE" },
+        passphrase: { type: "string", description: "Current passphrase" },
+        newPassphrase: { type: "string", description: "New passphrase (optional)" },
       },
       required: ["id", "filePath", "entryName", "entryType", "passphrase"],
     },
   },
   {
     name: "mip_download_key_store",
-    description: "Belirli bir key store'u indirir.",
+    description: "Downloads a specific key store.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string", description: "Key store ID" },
-        passphrase: { type: "string", description: "Key store şifresi" },
+        passphrase: { type: "string", description: "Key store passphrase" },
       },
       required: ["id", "passphrase"],
     },
@@ -54,36 +54,36 @@ const tools = [
   // ── Certificate ──
   {
     name: "mip_upload_certificate",
-    description: "Yeni bir sertifika (.crt / .pem) dosyası yükler.",
+    description: "Uploads a new certificate (.crt / .pem) file.",
     inputSchema: {
       type: "object",
       properties: {
-        filePath: { type: "string", description: "Sertifika dosyasının tam yolu" },
-        name: { type: "string", description: "Sertifika adı" },
+        filePath: { type: "string", description: "Full path of the certificate file" },
+        name: { type: "string", description: "Certificate name" },
       },
       required: ["filePath", "name"],
     },
   },
   {
     name: "mip_reupload_certificate",
-    description: "Mevcut bir sertifikayı günceller.",
+    description: "Updates an existing certificate.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Güncellenecek sertifika ID" },
-        filePath: { type: "string", description: "Yeni sertifika dosyasının tam yolu" },
-        name: { type: "string", description: "Yeni sertifika adı (opsiyonel)" },
+        id: { type: "string", description: "ID of the certificate to update" },
+        filePath: { type: "string", description: "Full path of the new certificate file" },
+        name: { type: "string", description: "New certificate name (optional)" },
       },
       required: ["id", "filePath"],
     },
   },
   {
     name: "mip_download_certificate",
-    description: "Belirli bir sertifikayı indirir.",
+    description: "Downloads a specific certificate.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Sertifika ID" },
+        id: { type: "string", description: "Certificate ID" },
       },
       required: ["id"],
     },

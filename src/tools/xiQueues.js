@@ -7,16 +7,16 @@ const tools = [
   {
     name: "mip_list_xi_queue_messages",
     description:
-      "XI Proxy > Queues: XI/PI kuyruk mesajlarını döner (sayfalı). status/qos/queueId/interfaceName/from/to ile filtrelenebilir. Takılan (blocked) mesajları bulmak ve retry/cancel etmek için kullanılır.",
+      "XI Proxy > Queues: returns XI/PI queue messages (paginated). Can be filtered by status/qos/queueId/interfaceName/from/to. Used to find blocked messages and retry/cancel them.",
     inputSchema: {
       type: "object",
       properties: {
-        status: { type: "string", description: "Mesaj durumu (ör. blocked/error) — opsiyonel" },
-        qos: { type: "string", description: "Quality of Service (ör. EO/EOIO) — opsiyonel" },
-        queueId: { type: "string", description: "Kuyruk ID — opsiyonel" },
-        interfaceName: { type: "string", description: "Interface adı — opsiyonel" },
-        from: { type: "string", description: "Başlangıç tarihi — opsiyonel" },
-        to: { type: "string", description: "Bitiş tarihi — opsiyonel" },
+        status: { type: "string", description: "Message status (e.g. blocked/error) — optional" },
+        qos: { type: "string", description: "Quality of Service (e.g. EO/EOIO) — optional" },
+        queueId: { type: "string", description: "Queue ID — optional" },
+        interfaceName: { type: "string", description: "Interface name — optional" },
+        from: { type: "string", description: "Start date — optional" },
+        to: { type: "string", description: "End date — optional" },
         page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
         size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },
       },
@@ -25,33 +25,33 @@ const tools = [
   },
   {
     name: "mip_get_xi_queue_summary",
-    description: "XI Proxy > Queues özeti: definedQueues, blockedQueues ve durum bazlı counts döner.",
+    description: "XI Proxy > Queues summary: returns definedQueues, blockedQueues and per-status counts.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_get_xi_queue_payload",
-    description: "Belirli bir XI kuyruk mesajının payload'ını döner (id ile).",
+    description: "Returns the payload of a specific XI queue message (by id).",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string", description: "XI kuyruk mesajı ID" } },
+      properties: { id: { type: "string", description: "XI queue message ID" } },
       required: ["id"],
     },
   },
   {
     name: "mip_retry_xi_queue_message",
-    description: "Takılan/hatalı bir XI kuyruk mesajını yeniden işlenmek üzere kuyruğa alır (PATCH /{id}/retry). updated:true ise başarılı.",
+    description: "Re-queues a blocked/failed XI queue message for reprocessing (PATCH /{id}/retry). updated:true means it succeeded.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string", description: "XI kuyruk mesajı ID" } },
+      properties: { id: { type: "string", description: "XI queue message ID" } },
       required: ["id"],
     },
   },
   {
     name: "mip_cancel_xi_queue_message",
-    description: "Bir XI kuyruk mesajını iptal eder (PATCH /{id}/cancel). updated:true ise başarılı.",
+    description: "Cancels an XI queue message (PATCH /{id}/cancel). updated:true means it succeeded.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string", description: "XI kuyruk mesajı ID" } },
+      properties: { id: { type: "string", description: "XI queue message ID" } },
       required: ["id"],
     },
   },

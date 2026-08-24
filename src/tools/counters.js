@@ -7,17 +7,17 @@ const tools = [
   {
     name: "mip_list_counters",
     description:
-      "Counter (number range) listesini döner. Her counter: name, minimumValue, maximumValue, currentValue, length. Sayfalıdır.",
+      "Returns the counter (number range) list. Each counter: name, minimumValue, maximumValue, currentValue, length. Paginated.",
     inputSchema: {
       type: "object",
       properties: {
         filter: {
           type: "string",
           description:
-            "Opsiyonel arama filtresi (isim/değerlerde geçen metin). Boş bırakılırsa tümü döner.",
+            "Optional search filter (text occurring in the name/values). Returns everything if left empty.",
         },
-        page: { type: "number", description: "Sayfa numarası (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        page: { type: "number", description: "Page number (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },
@@ -25,20 +25,20 @@ const tools = [
   {
     name: "mip_create_counter",
     description:
-      "Yeni bir counter (number range) oluşturur. name benzersiz olmalı; minimumValue/maximumValue sayısal aralığı, length ise sıfır dolgulu uzunluğu belirtir.",
+      "Creates a new counter (number range). name must be unique; minimumValue/maximumValue set the numeric range, and length the zero-padded width.",
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string", description: "Counter adı (benzersiz)" },
-        minimumValue: { type: "number", description: "Minimum değer (ör. 1)" },
-        maximumValue: { type: "number", description: "Maksimum değer (ör. 99999)" },
+        name: { type: "string", description: "Counter name (unique)" },
+        minimumValue: { type: "number", description: "Minimum value (e.g. 1)" },
+        maximumValue: { type: "number", description: "Maximum value (e.g. 99999)" },
         currentValue: {
           type: "number",
-          description: "Başlangıç/güncel değer (opsiyonel; genelde minimumValue ile başlar)",
+          description: "Initial/current value (optional; usually starts at minimumValue)",
         },
         length: {
           type: "number",
-          description: "Üretilen numaranın sıfır dolgulu uzunluğu (ör. 5)",
+          description: "Zero-padded width of the generated number (e.g. 5)",
         },
       },
       required: ["name", "minimumValue", "maximumValue"],
@@ -46,27 +46,27 @@ const tools = [
   },
   {
     name: "mip_update_counter",
-    description: "Mevcut bir counter'ı günceller. id zorunlu; verilen alanlar güncellenir.",
+    description: "Updates an existing counter. id is required; the given fields are updated.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Güncellenecek counter ID (mip_list_counters ile alınır)" },
-        name: { type: "string", description: "Yeni ad (opsiyonel)" },
-        minimumValue: { type: "number", description: "Yeni minimum değer (opsiyonel)" },
-        maximumValue: { type: "number", description: "Yeni maksimum değer (opsiyonel)" },
-        currentValue: { type: "number", description: "Yeni güncel değer (opsiyonel)" },
-        length: { type: "number", description: "Yeni uzunluk (opsiyonel)" },
+        id: { type: "number", description: "ID of the counter to update (from mip_list_counters)" },
+        name: { type: "string", description: "New name (optional)" },
+        minimumValue: { type: "number", description: "New minimum value (optional)" },
+        maximumValue: { type: "number", description: "New maximum value (optional)" },
+        currentValue: { type: "number", description: "New current value (optional)" },
+        length: { type: "number", description: "New length (optional)" },
       },
       required: ["id"],
     },
   },
   {
     name: "mip_delete_counter",
-    description: "Belirli bir counter'ı siler.",
+    description: "Deletes a specific counter.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Silinecek counter ID" },
+        id: { type: "number", description: "ID of the counter to delete" },
       },
       required: ["id"],
     },

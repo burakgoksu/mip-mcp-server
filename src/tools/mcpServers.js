@@ -62,7 +62,7 @@ const tools = [
         credentialId: { type: "string", description: "Yeni credential ID (opsiyonel)" },
         credentialHeaderName: { type: "string", description: "Yeni header adı (opsiyonel)" },
         defaultTool: { type: "string", description: "Yeni varsayılan tool (opsiyonel)" },
-        isEnabled: { type: "boolean", description: "Etkin/pasif (opsiyonel)" },
+        isEnabled: { type: "boolean", description: "Enabled/disabled (optional)" },
       },
       required: ["id"],
     },

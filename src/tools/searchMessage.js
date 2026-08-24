@@ -7,27 +7,27 @@ const tools = [
   {
     name: "mip_search_messages",
     description:
-      "Monitoring > Search-Message: bir flow'un message search rule'larının çıkardığı değere göre mesajları arar. resultValue verilirse o değere (regex) uyan mesajlar; boş bırakılırsa tarih aralığındaki tüm mesajlar döner. Her sonuç: messageId, createdDate, resultValue, status, messageSearchRuleId.",
+      "Monitoring > Search-Message: searches messages by the value extracted by a flow's message search rules. If resultValue is given, returns messages matching that value (regex); if left empty, returns every message in the date range. Each result: messageId, createdDate, resultValue, status, messageSearchRuleId.",
     inputSchema: {
       type: "object",
       properties: {
-        flowId: { type: "string", description: "Aranacak flow ID (rule tanımlı olmalı; ör. F_SAP_TO_ICE_EDONUSUM)" },
+        flowId: { type: "string", description: "Flow ID to search (must have a rule defined; e.g. F_SAP_TO_ICE_EDONUSUM)" },
         resultValue: {
           type: "string",
-          description: "Aranan değer (regex). Boş/verilmezse aralıktaki tüm mesajlar döner.",
+          description: "Value to search for (regex). If empty or omitted, every message in the range is returned.",
         },
         ruleIds: {
           type: "array",
           items: { type: "number" },
-          description: "Aranacak message search rule ID'leri. Verilmezse flow'un tüm ETKİN kuralları kullanılır.",
+          description: "Message search rule IDs to search. If omitted, all ENABLED rules of the flow are used.",
         },
         startDate: {
           type: "string",
-          description: "Başlangıç tarihi 'YYYY-MM-DD HH:mm' formatında. Verilmezse son 24 saat.",
+          description: "Start date in 'YYYY-MM-DD HH:mm' format. Defaults to the last 24 hours.",
         },
         endDate: {
           type: "string",
-          description: "Bitiş tarihi 'YYYY-MM-DD HH:mm' formatında. Verilmezse şimdi.",
+          description: "End date in 'YYYY-MM-DD HH:mm' format. Defaults to now.",
         },
         page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
         size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },

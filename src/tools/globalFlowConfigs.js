@@ -8,11 +8,11 @@ const tools = [
   {
     name: "mip_list_global_flow_configs",
     description:
-      "Global flow configuration listesini döner. Her kayıt: configKey, configValue (scalar veya JSON), enabled, appliedGlobally. Sayfalıdır. filter configKey içinde arar.",
+      "Returns the global flow configuration list. Each record: configKey, configValue (scalar or JSON), enabled, appliedGlobally. Paginated. filter searches within configKey.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: configKey içinde geçen metin" },
+        filter: { type: "string", description: "Optional: text occurring in configKey" },
         page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
         size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
       },
@@ -22,19 +22,19 @@ const tools = [
   {
     name: "mip_create_global_flow_config",
     description:
-      "Yeni bir global flow configuration (flow'lar arası ortak exchange property) oluşturur. configValue skaler (metin/sayı/bool) veya JSON olabilir; JSON metni otomatik parse edilir. enabled=flow'lara görünür/etkin, appliedGlobally=tüm flow'lara otomatik uygulanır (opt-out).",
+      "Creates a new global flow configuration (an exchange property shared across flows). configValue can be a scalar (text/number/bool) or JSON; JSON text is parsed automatically. enabled = visible/active to flows, appliedGlobally = applied automatically to every flow (opt-out).",
     inputSchema: {
       type: "object",
       properties: {
-        configKey: { type: "string", description: "Konfigürasyon anahtarı (benzersiz)" },
+        configKey: { type: "string", description: "Configuration key (unique)" },
         configValue: {
           type: "string",
-          description: "Değer: skaler (ör. 'No', '5', 'true') veya JSON metni (ör. '{\"a\":1}'). JSON ise otomatik parse edilir.",
+          description: "Value: scalar (e.g. 'No', '5', 'true') or JSON text (e.g. '{\"a\":1}'). Parsed automatically if it is JSON.",
         },
-        enabled: { type: "boolean", description: "Etkin / flow'lara görünür (varsayılan false)" },
+        enabled: { type: "boolean", description: "Enabled / visible to flows (default false)" },
         appliedGlobally: {
           type: "boolean",
-          description: "Tüm flow'lara otomatik uygulansın mı / opt-out (varsayılan false)",
+          description: "Apply automatically to all flows / opt-out (default false)",
         },
       },
       required: ["configKey", "configValue"],
@@ -43,26 +43,26 @@ const tools = [
   {
     name: "mip_update_global_flow_config",
     description:
-      "Mevcut bir global flow configuration'ı configKey ile günceller (verilen alanlar mevcut kaydın üstüne merge edilir). configValue skaler veya JSON olabilir. Kullanımdaki config için uyarı çıkarsa force=true ile geçilebilir.",
+      "Updates an existing global flow configuration by configKey (the given fields are merged over the current record). configValue can be a scalar or JSON. If a warning is raised for a config already in use, it can be bypassed with force=true.",
     inputSchema: {
       type: "object",
       properties: {
-        configKey: { type: "string", description: "Güncellenecek konfigürasyon anahtarı" },
-        configValue: { type: "string", description: "Yeni değer: skaler veya JSON metni (opsiyonel)" },
-        enabled: { type: "boolean", description: "Etkin/pasif (opsiyonel)" },
-        appliedGlobally: { type: "boolean", description: "Global uygulama aç/kapa (opsiyonel)" },
-        force: { type: "boolean", description: "Uyarıyı yok sayıp güncellemeyi zorla (opsiyonel)" },
+        configKey: { type: "string", description: "Configuration key to update" },
+        configValue: { type: "string", description: "New value: scalar or JSON text (optional)" },
+        enabled: { type: "boolean", description: "Enabled/disabled (optional)" },
+        appliedGlobally: { type: "boolean", description: "Turn global application on/off (optional)" },
+        force: { type: "boolean", description: "Ignore the warning and force the update (optional)" },
       },
       required: ["configKey"],
     },
   },
   {
     name: "mip_delete_global_flow_config",
-    description: "Belirli bir global flow configuration'ı configKey ile siler.",
+    description: "Deletes a specific global flow configuration by configKey.",
     inputSchema: {
       type: "object",
       properties: {
-        configKey: { type: "string", description: "Silinecek konfigürasyon anahtarı" },
+        configKey: { type: "string", description: "Configuration key to delete" },
       },
       required: ["configKey"],
     },

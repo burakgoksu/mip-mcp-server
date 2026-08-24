@@ -10,23 +10,23 @@ const asArray = (d) => (Array.isArray(d) ? d : d?.content ?? d ?? []);
 const tools = [
   {
     name: "mip_list_soa_services",
-    description: "Bir SOA bağlantısına MIP'e import edilmiş SOAP servislerini listeler (GET /api/soa-connections/{id}/services). connectionId = SOA connection ID (mip_list_soa_connections).",
+    description: "Lists the SOAP services already imported into MIP under a SOA connection (GET /api/soa-connections/{id}/services). connectionId = SOA connection ID (from mip_list_soa_connections).",
     inputSchema: { type: "object", properties: { connectionId: { type: "number", description: "SOA connection ID" } }, required: ["connectionId"] },
   },
   {
     name: "mip_list_available_soa_services",
-    description: "SAP sisteminde import edilebilir (henüz alınmamış) SOA servislerini keşfeder (GET /api/soa-connections/{id}/available-services). Canlı olarak SAP'a bağlanır, yavaş olabilir.",
+    description: "Discovers SOA services on the SAP system that are available to import (not yet fetched) (GET /api/soa-connections/{id}/available-services). Connects to SAP live, so it can be slow.",
     inputSchema: { type: "object", properties: { connectionId: { type: "number", description: "SOA connection ID" } }, required: ["connectionId"] },
   },
   {
     name: "mip_import_soa_services",
-    description: "SOA servislerini SAP'tan MIP'e import eder (POST /api/soa-connections/{id}/import-services). services verilmezse mevcut tümü, verilirse yalnız seçilen servis adları import edilir.",
-    inputSchema: { type: "object", properties: { connectionId: { type: "number", description: "SOA connection ID" }, services: { type: "array", items: { type: "string" }, description: "İçe aktarılacak servis adları — boş bırakılırsa hepsi" } }, required: ["connectionId"] },
+    description: "Imports SOA services from SAP into MIP (POST /api/soa-connections/{id}/import-services). If services is omitted, all available ones are imported; if given, only the listed service names.",
+    inputSchema: { type: "object", properties: { connectionId: { type: "number", description: "SOA connection ID" }, services: { type: "array", items: { type: "string" }, description: "Service names to import — imports all of them if left empty" } }, required: ["connectionId"] },
   },
   {
     name: "mip_get_soa_service_wsdl",
-    description: "Import edilmiş bir SOA servisinin WSDL'ini döner (GET /api/soa-services/{id}/wsdl). refresh=true ile SAP'tan tazelenir. id = SOA servis ID (mip_list_soa_services).",
-    inputSchema: { type: "object", properties: { id: { type: "number", description: "SOA servis ID" }, refresh: { type: "boolean", description: "SAP'tan yeniden çek (varsayılan false)" } }, required: ["id"] },
+    description: "Returns the WSDL of an imported SOA service (GET /api/soa-services/{id}/wsdl). refresh=true re-fetches it from SAP. id = SOA service ID (from mip_list_soa_services).",
+    inputSchema: { type: "object", properties: { id: { type: "number", description: "SOA service ID" }, refresh: { type: "boolean", description: "Re-fetch from SAP (default false)" } }, required: ["id"] },
   },
 ];
 

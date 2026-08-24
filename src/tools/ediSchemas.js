@@ -12,13 +12,13 @@ const tools = [
   {
     name: "mip_list_edi_schemas",
     description:
-      "EDI Schema listesini döner. Her kayıt: resourceName, ediType, resourceType (xsd/xslt), dataFormat, version. Sayfalıdır; filter isimde arar.",
+      "Returns the EDI Schema list. Each record: resourceName, ediType, resourceType (xsd/xslt), dataFormat, version. Paginated; filter searches the name.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: ad içinde geçen metin" },
+        filter: { type: "string", description: "Optional: text occurring in the name" },
         page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },
+        size: { type: "number", description: "Records per page (default 25)" },
       },
       required: [],
     },
@@ -26,49 +26,49 @@ const tools = [
   {
     name: "mip_upload_edi_schema",
     description:
-      "Yeni bir EDI schema dosyası (.xsd/.xslt) yükler. ediType: EDIFACT/EANCOM/ANSI_X12/ODETTE/VDA/TRADACOMS. resourceType xsd veya xslt. dataFormat genelde XML.",
+      "Uploads a new EDI schema file (.xsd/.xslt). ediType: EDIFACT/EANCOM/ANSI_X12/ODETTE/VDA/TRADACOMS. resourceType is xsd or xslt. dataFormat is usually XML.",
     inputSchema: {
       type: "object",
       properties: {
-        filePath: { type: "string", description: "Yüklenecek dosyanın tam yolu (.xsd/.xslt)" },
-        resourceName: { type: "string", description: "Kaynak adı (ör. ORDERSD96A.xsd)" },
-        ediType: { type: "string", enum: EDI_TYPES, description: "EDI standardı" },
-        resourceType: { type: "string", enum: ["xsd", "xslt"], description: "Kaynak tipi (varsayılan xsd)" },
-        dataFormat: { type: "string", description: "Veri formatı (varsayılan XML)" },
-        version: { type: "string", description: "Sürüm (opsiyonel)" },
+        filePath: { type: "string", description: "Full path of the file to upload (.xsd/.xslt)" },
+        resourceName: { type: "string", description: "Resource name (e.g. ORDERSD96A.xsd)" },
+        ediType: { type: "string", enum: EDI_TYPES, description: "EDI standard" },
+        resourceType: { type: "string", enum: ["xsd", "xslt"], description: "Resource type (default xsd)" },
+        dataFormat: { type: "string", description: "Data format (default XML)" },
+        version: { type: "string", description: "Version (optional)" },
       },
       required: ["filePath", "resourceName", "ediType"],
     },
   },
   {
     name: "mip_reupload_edi_schema",
-    description: "Mevcut bir EDI schema'yı id ile günceller (yeni dosya + meta).",
+    description: "Updates an existing EDI schema by id (new file + metadata).",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Güncellenecek EDI schema ID" },
-        filePath: { type: "string", description: "Yeni dosyanın tam yolu" },
-        resourceName: { type: "string", description: "Kaynak adı" },
-        ediType: { type: "string", enum: EDI_TYPES, description: "EDI standardı" },
-        resourceType: { type: "string", enum: ["xsd", "xslt"], description: "Kaynak tipi" },
-        dataFormat: { type: "string", description: "Veri formatı" },
-        version: { type: "string", description: "Sürüm (opsiyonel)" },
+        id: { type: "number", description: "ID of the EDI schema to update" },
+        filePath: { type: "string", description: "Full path of the new file" },
+        resourceName: { type: "string", description: "Resource name" },
+        ediType: { type: "string", enum: EDI_TYPES, description: "EDI standard" },
+        resourceType: { type: "string", enum: ["xsd", "xslt"], description: "Resource type" },
+        dataFormat: { type: "string", description: "Data format" },
+        version: { type: "string", description: "Version (optional)" },
       },
       required: ["id", "filePath", "resourceName", "ediType"],
     },
   },
   {
     name: "mip_delete_edi_schema",
-    description: "Belirli bir EDI schema'yı id ile siler.",
+    description: "Deletes a specific EDI schema by id.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "Silinecek EDI schema ID" } },
+      properties: { id: { type: "number", description: "ID of the EDI schema to delete" } },
       required: ["id"],
     },
   },
   {
     name: "mip_download_edi_schema",
-    description: "Belirli bir EDI schema dosyasını indirir ve MIP_DOWNLOAD_DIR'e kaydeder.",
+    description: "Downloads a specific EDI schema file and saves it to MIP_DOWNLOAD_DIR.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "number", description: "İndirilecek EDI schema ID" } },

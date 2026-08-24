@@ -8,11 +8,11 @@ const tools = [
   {
     name: "mip_list_message_search_rules",
     description:
-      "Message search rule listesini döner. Her kural: flowId, name, type (XPATH|JSON_PATH), value (ifade), isEnabled. Sayfalıdır. filter flowId/name/type/value içinde arar.",
+      "Returns the message search rule list. Each rule: flowId, name, type (XPATH|JSON_PATH), value (the expression), isEnabled. Paginated. filter searches within flowId/name/type/value.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: flowId/name/type/value içinde geçen metin" },
+        filter: { type: "string", description: "Optional: text occurring in flowId/name/type/value" },
         page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
         size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
       },
@@ -22,22 +22,22 @@ const tools = [
   {
     name: "mip_create_message_search_rule",
     description:
-      "Yeni bir message search rule oluşturur. Belirtilen flow'un mesajından, type=XPATH veya JSON_PATH ifadesiyle (value) bir alan çıkarır; bu alan Monitoring'de arama/görüntüleme için kullanılır. isEnabled ile kural etkinleştirilir.",
+      "Creates a new message search rule. It extracts a field from the given flow's message using a type=XPATH or JSON_PATH expression (value); that field is then used for searching/display in Monitoring. isEnabled activates the rule.",
     inputSchema: {
       type: "object",
       properties: {
-        flowId: { type: "string", description: "Kuralın uygulanacağı flow ID (ör. F_SAP_TO_ICE_EDONUSUM)" },
-        name: { type: "string", description: "Kural adı / çıkarılan alanın etiketi (ör. UserName)" },
+        flowId: { type: "string", description: "ID of the flow the rule applies to (e.g. F_SAP_TO_ICE_EDONUSUM)" },
+        name: { type: "string", description: "Rule name / label of the extracted field (e.g. UserName)" },
         type: {
           type: "string",
           enum: ["XPATH", "JSON_PATH"],
-          description: "İfade tipi: XPATH (XML) veya JSON_PATH (JSON)",
+          description: "Expression type: XPATH (XML) or JSON_PATH (JSON)",
         },
         value: {
           type: "string",
-          description: "Çıkarım ifadesi (ör. XPATH: //*[local-name()='UserName']/text() , JSON_PATH: $.userName)",
+          description: "Extraction expression (e.g. XPATH: //*[local-name()='UserName']/text() , JSON_PATH: $.userName)",
         },
-        isEnabled: { type: "boolean", description: "Kural etkin mi (varsayılan false)" },
+        isEnabled: { type: "boolean", description: "Whether the rule is enabled (default false)" },
       },
       required: ["flowId", "name", "type", "value"],
     },
@@ -45,15 +45,15 @@ const tools = [
   {
     name: "mip_update_message_search_rule",
     description:
-      "Mevcut bir message search rule'u günceller (isEnabled aç/kapa dahil). id zorunlu; verilen alanlar mevcut kaydın üstüne merge edilir.",
+      "Updates an existing message search rule (including toggling isEnabled). id is required; the given fields are merged over the current record.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Güncellenecek kural ID (mip_list_message_search_rules ile alınır)" },
-        flowId: { type: "string", description: "Yeni flow ID (opsiyonel)" },
+        id: { type: "number", description: "ID of the rule to update (from mip_list_message_search_rules)" },
+        flowId: { type: "string", description: "New flow ID (optional)" },
         name: { type: "string", description: "Yeni ad (opsiyonel)" },
-        type: { type: "string", enum: ["XPATH", "JSON_PATH"], description: "Yeni tip (opsiyonel)" },
-        value: { type: "string", description: "Yeni ifade (opsiyonel)" },
+        type: { type: "string", enum: ["XPATH", "JSON_PATH"], description: "New type (optional)" },
+        value: { type: "string", description: "New expression (optional)" },
         isEnabled: { type: "boolean", description: "Etkin/pasif (opsiyonel)" },
       },
       required: ["id"],
@@ -62,11 +62,11 @@ const tools = [
   {
     name: "mip_delete_message_search_rule",
     description:
-      "Belirli bir message search rule'u siler. NOT: etkin (isEnabled) bir kural silinemez (409); önce mip_update_message_search_rule ile isEnabled=false yapılmalıdır.",
+      "Deletes a specific message search rule. NOTE: an enabled (isEnabled) rule cannot be deleted (409); set isEnabled=false via mip_update_message_search_rule first.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Silinecek kural ID" },
+        id: { type: "number", description: "ID of the rule to delete" },
       },
       required: ["id"],
     },

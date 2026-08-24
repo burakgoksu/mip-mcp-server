@@ -20,37 +20,37 @@ function connBody(args) {
 const unwrap = (d) => (d && typeof d === "object" && "data" in d ? d.data : d);
 
 const CONN_PROPS = {
-  destinationId: { type: "number", description: "Kayıtlı RFC destination ID (Destinations > RFC; mip_list_rfc_destinations). Satır-içi bilgiler yerine bunu vermek tercih edilir." },
-  ashost: { type: "string", description: "SAP application server host (destinationId yoksa)" },
-  sysnr: { type: "string", description: "SAP system number (ör. '00')" },
-  client: { type: "string", description: "SAP client (ör. '100')" },
+  destinationId: { type: "number", description: "Saved RFC destination ID (Destinations > RFC; mip_list_rfc_destinations). Preferred over passing inline credentials." },
+  ashost: { type: "string", description: "SAP application server host (when destinationId is not given)" },
+  sysnr: { type: "string", description: "SAP system number (e.g. '00')" },
+  client: { type: "string", description: "SAP client (e.g. '100')" },
   user: { type: "string", description: "SAP kullanıcı adı" },
-  password: { type: "string", description: "SAP şifresi" },
-  lang: { type: "string", description: "Oturum dili (ör. 'EN') — opsiyonel" },
+  password: { type: "string", description: "SAP password" },
+  lang: { type: "string", description: "Session language (e.g. 'EN') — optional" },
 };
 
 const tools = [
   {
     name: "mip_test_sap_connection",
     description:
-      "SAP RFC bağlantısını test eder (POST /api/sap-connections/test-connection). destinationId (kayıtlı RFC destination) VEYA satır-içi ashost/sysnr/client/user/password ile. Zararsız handshake; connected true/false döner.",
+      "Tests a SAP RFC connection (POST /api/sap-connections/test-connection). Use either destinationId (a saved RFC destination) OR inline ashost/sysnr/client/user/password. Harmless handshake; returns connected true/false.",
     inputSchema: { type: "object", properties: { ...CONN_PROPS }, required: [] },
   },
   {
     name: "mip_browse_rfcs",
     description:
-      "RFC Explorer: bir SAP sisteminde RFC/BAPI fonksiyonlarını arar (POST /api/sap-connections/browse-rfcs). namePattern SAP joker maskesidir; '*' joker olarak GEREKLİDİR — 'STFC*' veya '*BAPI_USER*' eşleşir ama jokersiz 'STFC' hiçbir şey döndürmez. Min 2 karakter. Eşleşen fonksiyonlar {name, group} olarak döner.",
-    inputSchema: { type: "object", properties: { ...CONN_PROPS, namePattern: { type: "string", description: "SAP RFC adı maskesi, '*' joker (ör. 'STFC*', 'BAPI_USER*', '*STFC*'). Jokersiz arama boş döner." } }, required: ["namePattern"] },
+      "RFC Explorer: searches RFC/BAPI functions on a SAP system (POST /api/sap-connections/browse-rfcs). namePattern is a SAP wildcard mask; '*' is REQUIRED as the wildcard — 'STFC*' or '*BAPI_USER*' match, but 'STFC' without a wildcard returns nothing. Minimum 2 characters. Matching functions are returned as {name, group}.",
+    inputSchema: { type: "object", properties: { ...CONN_PROPS, namePattern: { type: "string", description: "SAP RFC name mask, '*' is the wildcard (e.g. 'STFC*', 'BAPI_USER*', '*STFC*'). A search without a wildcard returns empty." } }, required: ["namePattern"] },
   },
   {
     name: "mip_get_rfc_interface",
     description:
-      "Bir RFC/BAPI fonksiyonunun arayüzünü döner (POST /api/sap-connections/rfc-interface): import/export/changing parametreleri, tablolar ve yapı alanları. functionName tam fonksiyon adıdır (ör. 'STFC_CONNECTION').",
-    inputSchema: { type: "object", properties: { ...CONN_PROPS, functionName: { type: "string", description: "Tam RFC fonksiyon adı (ör. STFC_CONNECTION)" } }, required: ["functionName"] },
+      "Returns the interface of an RFC/BAPI function (POST /api/sap-connections/rfc-interface): import/export/changing parameters, tables and structure fields. functionName is the full function name (e.g. 'STFC_CONNECTION').",
+    inputSchema: { type: "object", properties: { ...CONN_PROPS, functionName: { type: "string", description: "Full RFC function name (e.g. STFC_CONNECTION)" } }, required: ["functionName"] },
   },
   {
     name: "mip_list_imported_sap_objects",
-    description: "Bir RFC destination için MIP'e daha önce import edilmiş SAP objelerini listeler (GET /api/imported-sap-objects?connectionId=).",
+    description: "Lists the SAP objects previously imported into MIP for an RFC destination (GET /api/imported-sap-objects?connectionId=).",
     inputSchema: { type: "object", properties: { connectionId: { type: "number", description: "RFC destination ID" } }, required: ["connectionId"] },
   },
 ];

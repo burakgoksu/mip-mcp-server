@@ -6,15 +6,15 @@ const tools = [
   {
     name: "mip_execute_groovy_script",
     description:
-      "Groovy Editor: bir Groovy script'ini verilen input body + header + property'lere karşı çalıştırır ve sonucu (output, headers, properties) döner. " +
-      "ÖNEMLI: script bir `executeMessage` metodu tanımlamalı ve parametre tipi `com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO` OLMALI (varsayılan şablondaki Exchange tipi runtime'da ÇALIŞMAZ), metod bu message'ı geri döndürmeli. " +
-      "DTO metotları: getBody()/setBody(x), getHeaders()/setHeader(name,value), getProperties()/setProperty(name,value). " +
-      "Örnek: `def executeMessage(com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO message) { message.setBody(message.getBody().toString().toUpperCase()); return message }`",
+      "Groovy Editor: runs a Groovy script against the given input body + headers + properties and returns the result (output, headers, properties). " +
+      "IMPORTANT: the script MUST define an `executeMessage` method whose parameter type is `com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO` (the Exchange type in the default template DOES NOT work at runtime), and the method must return that message. " +
+      "DTO methods: getBody()/setBody(x), getHeaders()/setHeader(name,value), getProperties()/setProperty(name,value). " +
+      "Example: `def executeMessage(com.mdp.middleware.processor.connector.mappings.ScriptExchangeDTO message) { message.setBody(message.getBody().toString().toUpperCase()); return message }`",
     inputSchema: {
       type: "object",
       properties: {
-        groovyScript: { type: "string", description: "Çalıştırılacak Groovy script (executeMessage(ScriptExchangeDTO) tanımlamalı, message döndürmeli)" },
-        input: { type: "string", description: "Input message body (opsiyonel)" },
+        groovyScript: { type: "string", description: "Groovy script to run (must define executeMessage(ScriptExchangeDTO) and return the message)" },
+        input: { type: "string", description: "Input message body (optional)" },
         headers: {
           type: "array",
           items: {
@@ -22,7 +22,7 @@ const tools = [
             properties: { name: { type: "string" }, value: { type: "string" } },
             required: ["name", "value"],
           },
-          description: "Input header'ları [{name,value}] (opsiyonel)",
+          description: "Input headers [{name,value}] (optional)",
         },
         properties: {
           type: "array",
@@ -31,7 +31,7 @@ const tools = [
             properties: { name: { type: "string" }, value: { type: "string" } },
             required: ["name", "value"],
           },
-          description: "Input exchange property'leri [{name,value}] (opsiyonel)",
+          description: "Input exchange properties [{name,value}] (optional)",
         },
       },
       required: ["groovyScript"],
@@ -40,12 +40,12 @@ const tools = [
   {
     name: "mip_execute_xslt_transform",
     description:
-      "XSLT Editor: verilen XML girdisine bir XSLT stylesheet uygular ve dönüşüm sonucunu (output, xsltVersion, outputMethod, status, errors) döner.",
+      "XSLT Editor: applies an XSLT stylesheet to the given XML input and returns the transformation result (output, xsltVersion, outputMethod, status, errors).",
     inputSchema: {
       type: "object",
       properties: {
-        inputXml: { type: "string", description: "Dönüştürülecek XML girdi" },
-        xsltCode: { type: "string", description: "XSLT stylesheet (tam <xsl:stylesheet> belgesi)" },
+        inputXml: { type: "string", description: "XML input to transform" },
+        xsltCode: { type: "string", description: "XSLT stylesheet (a complete <xsl:stylesheet> document)" },
       },
       required: ["inputXml", "xsltCode"],
     },

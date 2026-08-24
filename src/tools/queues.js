@@ -7,15 +7,15 @@ const tools = [
   {
     name: "mip_list_kafka_topics",
     description:
-      "Queues: Kafka topic listesini döner. Her topic: bootstrapServers (cluster), topic, status (HEALTHY/DOWN), producerCount, consumerCount, inMip. scope='MIP' yalnızca MIP flow'larının kullandığı topic'ler, scope='ALL' cluster'daki tüm topic'ler. Sayfalı; filter topic/cluster'da arar.",
+      "Queues: returns the Kafka topic list. Each topic: bootstrapServers (cluster), topic, status (HEALTHY/DOWN), producerCount, consumerCount, inMip. scope='MIP' returns only topics used by MIP flows, scope='ALL' every topic in the cluster. Paginated; filter searches topic/cluster.",
     inputSchema: {
       type: "object",
       properties: {
-        scope: { type: "string", enum: ["MIP", "ALL"], description: "MIP (varsayılan) = MIP topic'leri; ALL = tüm topic'ler" },
-        filter: { type: "string", description: "Opsiyonel: topic veya cluster adında geçen metin" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },
-        forceRefresh: { type: "boolean", description: "Önbelleği atlayıp cluster'dan taze veri çek (opsiyonel)" },
+        scope: { type: "string", enum: ["MIP", "ALL"], description: "MIP (default) = MIP topics; ALL = all topics" },
+        filter: { type: "string", description: "Optional: text occurring in the topic or cluster name" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 25)" },
+        forceRefresh: { type: "boolean", description: "Bypass the cache and fetch fresh data from the cluster (optional)" },
       },
       required: [],
     },
@@ -23,14 +23,14 @@ const tools = [
   {
     name: "mip_get_kafka_topic_detail",
     description:
-      "Queues: bir Kafka topic'inin detayını döner — cluster durumu (brokers/onlineBrokers), partitions, replicationFactor, retentionMs/Bytes, cleanupPolicy, compressionType, ve topic'i kullanan MIP producer/consumer flow'ları (flowId, deployed, sayaçlar). bootstrapServers + topic zorunlu.",
+      "Queues: returns the detail of a Kafka topic — cluster state (brokers/onlineBrokers), partitions, replicationFactor, retentionMs/Bytes, cleanupPolicy, compressionType, and the MIP producer/consumer flows using the topic (flowId, deployed, counters). bootstrapServers + topic are required.",
     inputSchema: {
       type: "object",
       properties: {
-        bootstrapServers: { type: "string", description: "Cluster bootstrap servers (mip_list_kafka_topics'ten alınır, ör. 'kafka:9092')" },
-        topic: { type: "string", description: "Topic adı" },
-        windowMinutes: { type: "number", description: "İstatistik penceresi (dakika, varsayılan 60)" },
-        forceRefresh: { type: "boolean", description: "Önbelleği atla (opsiyonel)" },
+        bootstrapServers: { type: "string", description: "Cluster bootstrap servers (from mip_list_kafka_topics, e.g. 'kafka:9092')" },
+        topic: { type: "string", description: "Topic name" },
+        windowMinutes: { type: "number", description: "Statistics window (minutes, default 60)" },
+        forceRefresh: { type: "boolean", description: "Bypass the cache (optional)" },
       },
       required: ["bootstrapServers", "topic"],
     },
@@ -38,13 +38,13 @@ const tools = [
   {
     name: "mip_update_kafka_topic",
     description:
-      "Queues: bir Kafka topic'inin ayarlarını günceller (retention, partitions vb.). DİKKAT: gerçek Kafka topic konfigürasyonunu değiştirir. changes, değiştirilecek ayarları içeren bir objedir (ör. {retentionMs: 604800000}). Yalnızca 'editable' topic'lerde çalışır.",
+      "Queues: updates a Kafka topic's settings (retention, partitions etc.). CAUTION: this changes the real Kafka topic configuration. changes is an object holding the settings to modify (e.g. {retentionMs: 604800000}). Works only on 'editable' topics.",
     inputSchema: {
       type: "object",
       properties: {
         bootstrapServers: { type: "string", description: "Cluster bootstrap servers" },
-        topic: { type: "string", description: "Topic adı" },
-        changes: { type: "object", description: "Değiştirilecek topic ayarları (ör. {retentionMs, retentionBytes, cleanupPolicy, compressionType, maxMessageBytes})" },
+        topic: { type: "string", description: "Topic name" },
+        changes: { type: "object", description: "Topic settings to change (e.g. {retentionMs, retentionBytes, cleanupPolicy, compressionType, maxMessageBytes})" },
       },
       required: ["bootstrapServers", "topic", "changes"],
     },

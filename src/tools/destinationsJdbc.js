@@ -7,12 +7,12 @@ const tools = [
   {
     name: "mip_list_jdbc_destinations",
     description:
-      "JDBC destination (veritabanı) listesini döner. Her kayıt: databaseName, databaseDriver, databaseUrl, databaseUsername. Parola güvenlik için gizlenir. Sayfalıdır.",
+      "Returns the JDBC destination (database) list. Each record: databaseName, databaseDriver, databaseUrl, databaseUsername. The password is hidden for security. Paginated.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: ad/sürücü/kullanıcı/url içinde geçen metin" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        filter: { type: "string", description: "Optional: text occurring in the name/driver/user/url" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
         size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
       },
       required: [],
@@ -21,11 +21,11 @@ const tools = [
   {
     name: "mip_create_jdbc_destination",
     description:
-      "Yeni bir JDBC destination oluşturur. userName/password TÜM sürücülerde zorunludur (mongodb dahil). jdbcUrl bağlantı stringidir.",
+      "Creates a new JDBC destination. userName/password are required for ALL drivers (including mongodb). jdbcUrl is the connection string.",
     inputSchema: {
       type: "object",
       properties: {
-        databaseName: { type: "string", description: "Destination adı (benzersiz)" },
+        databaseName: { type: "string", description: "Destination name (unique)" },
         driver: {
           type: "string",
           enum: [
@@ -35,14 +35,14 @@ const tools = [
             "oracle.jdbc.OracleDriver",
             "mongodb",
           ],
-          description: "JDBC sürücüsü (PostgreSQL/MySQL/MSSQL/Oracle/MongoDB)",
+          description: "JDBC driver (PostgreSQL/MySQL/MSSQL/Oracle/MongoDB)",
         },
         jdbcUrl: {
           type: "string",
-          description: "Bağlantı stringi, ör. jdbc:postgresql://host:port/db?currentSchema=dbo",
+          description: "Connection string, e.g. jdbc:postgresql://host:port/db?currentSchema=dbo",
         },
-        userName: { type: "string", description: "Kullanıcı adı (tüm sürücülerde zorunlu)" },
-        password: { type: "string", description: "Parola (tüm sürücülerde zorunlu)" },
+        userName: { type: "string", description: "User name (required for all drivers)" },
+        password: { type: "string", description: "Password (required for all drivers)" },
       },
       required: ["databaseName", "driver", "jdbcUrl", "userName", "password"],
     },
@@ -50,12 +50,12 @@ const tools = [
   {
     name: "mip_update_jdbc_destination",
     description:
-      "Mevcut bir JDBC destination'ı id ile günceller. Verilen alanlar mevcut kaydın üstüne merge edilir (parola verilmezse korunur).",
+      "Updates an existing JDBC destination by id. The given fields are merged over the current record (the password is kept if omitted).",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Güncellenecek destination ID (mip_list_jdbc_destinations ile alınır)" },
-        databaseName: { type: "string", description: "Yeni ad (opsiyonel)" },
+        id: { type: "number", description: "ID of the destination to update (from mip_list_jdbc_destinations)" },
+        databaseName: { type: "string", description: "New name (optional)" },
         driver: {
           type: "string",
           enum: [
@@ -65,22 +65,22 @@ const tools = [
             "oracle.jdbc.OracleDriver",
             "mongodb",
           ],
-          description: "Yeni sürücü (opsiyonel)",
+          description: "New driver (optional)",
         },
-        jdbcUrl: { type: "string", description: "Yeni bağlantı stringi (opsiyonel)" },
-        userName: { type: "string", description: "Yeni kullanıcı adı (opsiyonel)" },
-        password: { type: "string", description: "Yeni parola (opsiyonel; verilmezse mevcut korunur)" },
+        jdbcUrl: { type: "string", description: "New connection string (optional)" },
+        userName: { type: "string", description: "New user name (optional)" },
+        password: { type: "string", description: "New password (optional; the existing one is kept if omitted)" },
       },
       required: ["id"],
     },
   },
   {
     name: "mip_delete_jdbc_destination",
-    description: "Belirli bir JDBC destination'ı id ile siler.",
+    description: "Deletes a specific JDBC destination by id.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Silinecek destination ID" },
+        id: { type: "number", description: "ID of the destination to delete" },
       },
       required: ["id"],
     },
