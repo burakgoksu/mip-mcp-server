@@ -17,7 +17,7 @@ const tools = [
       type: "object",
       properties: {
         filter: { type: "string", description: "Optional: text occurring in the name" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
         size: { type: "number", description: "Records per page (default 25)" },
       },
       required: [],
@@ -71,7 +71,7 @@ const tools = [
     description: "Downloads a specific EDI schema file and saves it to MIP_DOWNLOAD_DIR.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "İndirilecek EDI schema ID" } },
+      properties: { id: { type: "number", description: "ID of the EDI schema to download" } },
       required: ["id"],
     },
   },

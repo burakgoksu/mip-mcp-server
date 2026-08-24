@@ -8,18 +8,18 @@ const tools = [
   {
     name: "mip_get_system_health",
     description:
-      "System Health: MIP backend pod'larının anlık kaynak kullanımını döner — her pod için podName, cpuLoad (0-1 oran), memoryLoad (MB), inflightExchanges (işlenen mesaj sayısı). Salt-okunur.",
+      "System Health: returns the current resource usage of the MIP backend pods — for each pod podName, cpuLoad (0-1 ratio), memoryLoad (MB), inflightExchanges (number of messages being processed). Read-only.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_generate_system_health_report",
     description:
-      "System Health verisinden detaylı bir rapor üretir. Anlık snapshot'ı birkaç kez örnekleyip (samples) her pod için CPU% ve bellek (MB) min/ort/maks + inflight değerlerini hesaplar, eşiklere göre değerlendirme (OK/UYARI) ile Markdown rapor döner. Not: bu instance'ta geçmiş (historical) veri yok; rapor kısa bir örnekleme penceresine dayanır.",
+      "Produces a detailed report from System Health data. Samples the live snapshot several times (samples) and computes min/avg/max CPU% and memory (MB) plus inflight values per pod, returning a Markdown report with a threshold-based assessment (OK/WARNING). Note: this instance has no historical data; the report is based on a short sampling window.",
     inputSchema: {
       type: "object",
       properties: {
-        samples: { type: "number", description: "Örnekleme sayısı (varsayılan 4, max 10)" },
-        intervalMs: { type: "number", description: "Örnekler arası bekleme ms (varsayılan 800, max 3000)" },
+        samples: { type: "number", description: "Number of samples (default 4, max 10)" },
+        intervalMs: { type: "number", description: "Wait between samples in ms (default 800, max 3000)" },
       },
       required: [],
     },
@@ -27,12 +27,12 @@ const tools = [
   {
     name: "mip_generate_system_health_excel",
     description:
-      "System Health verisinden STANDART formatlı bir EXCEL (.xlsx) raporu üretir ve MIP_DOWNLOAD_DIR'e kaydeder. Sabit 2 sayfa: 'Ozet' (pod başına CPU%/bellek/inflight min-ort-maks + Durum) ve 'Ornekler' (ham örnekler). Şablon her çağrıda birebir aynıdır; yalnızca değerler değişir.",
+      "Produces a STANDARD-format EXCEL (.xlsx) report from System Health data and saves it to MIP_DOWNLOAD_DIR. Always 2 sheets: 'Summary' (per-pod CPU%/memory/inflight min-avg-max + Status) and 'Samples' (raw samples). The template is identical on every call; only the values change.",
     inputSchema: {
       type: "object",
       properties: {
-        samples: { type: "number", description: "Örnekleme sayısı (varsayılan 5, max 10)" },
-        intervalMs: { type: "number", description: "Örnekler arası bekleme ms (varsayılan 800, max 3000)" },
+        samples: { type: "number", description: "Number of samples (default 5, max 10)" },
+        intervalMs: { type: "number", description: "Wait between samples in ms (default 800, max 3000)" },
       },
       required: [],
     },
@@ -40,13 +40,13 @@ const tools = [
   {
     name: "mip_test_connectivity",
     description:
-      "Test Connectivity: MIP backend'inden verilen host:port hedefine bağlantı testi yapar (TCP/HTTP handshake, non-destructive). Sonuç: status (SUCCESS/UNREACHABLE), resultCode, duration, responsePayload.",
+      "Test Connectivity: runs a connection test from the MIP backend to the given host:port (TCP/HTTP handshake, non-destructive). Result: status (SUCCESS/UNREACHABLE), resultCode, duration, responsePayload.",
     inputSchema: {
       type: "object",
       properties: {
-        host: { type: "string", description: "Hedef host (IP veya alan adı)" },
-        port: { type: "number", description: "Hedef port" },
-        connectorType: { type: "string", description: "Opsiyonel bağlantı tipi (ör. TCP/HTTP)" },
+        host: { type: "string", description: "Target host (IP or domain name)" },
+        port: { type: "number", description: "Target port" },
+        connectorType: { type: "string", description: "Optional connection type (e.g. TCP/HTTP)" },
       },
       required: ["host", "port"],
     },

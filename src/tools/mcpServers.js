@@ -7,13 +7,13 @@ const tools = [
   {
     name: "mip_list_mcp_servers",
     description:
-      "Tanımlı MCP server listesini döner. Her kayıt: name, serverConfigJson, authType, isEnabled, defaultTool. Sayfalıdır. filter name/serverConfigJson içinde arar.",
+      "Returns the list of defined MCP servers. Each record: name, serverConfigJson, authType, isEnabled, defaultTool. Paginated. filter searches within name/serverConfigJson.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: ad/config içinde geçen metin" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        filter: { type: "string", description: "Optional: text occurring in the name/config" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },
@@ -21,25 +21,25 @@ const tools = [
   {
     name: "mip_create_mcp_server",
     description:
-      "Yeni bir MCP server tanımlar. serverConfigJson geçerli bir JSON (MCP server config) olmalı. authType NONE değilse credentialId zorunludur; API_KEY için credentialHeaderName verilebilir.",
+      "Defines a new MCP server. serverConfigJson must be valid JSON (an MCP server config). credentialId is required unless authType is NONE; credentialHeaderName may be given for API_KEY.",
     inputSchema: {
       type: "object",
       properties: {
-        name: { type: "string", description: "MCP server adı (benzersiz, max 255)" },
+        name: { type: "string", description: "MCP server name (unique, max 255)" },
         serverConfigJson: {
           type: "string",
           description:
-            "MCP server konfigürasyonu (geçerli JSON metni). Ör. {\"mcpServers\":{\"filesystem\":{\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]}}}",
+            "MCP server configuration (valid JSON text). E.g. {\"mcpServers\":{\"filesystem\":{\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\",\"/tmp\"]}}}",
         },
         authType: {
           type: "string",
           enum: ["NONE", "API_KEY", "BEARER", "BASIC", "OAUTH2", "CLIENT_CERT"],
-          description: "Kimlik doğrulama tipi (varsayılan NONE)",
+          description: "Authentication type (default NONE)",
         },
-        credentialId: { type: "string", description: "authType NONE değilse zorunlu — kimlik bilgisi credential ID" },
-        credentialHeaderName: { type: "string", description: "API_KEY için header/env değişken adı (opsiyonel)" },
-        defaultTool: { type: "string", description: "Varsayılan tool adı (opsiyonel)" },
-        isEnabled: { type: "boolean", description: "Etkin mi (varsayılan true)" },
+        credentialId: { type: "string", description: "Required unless authType is NONE — the credential ID holding the authentication details" },
+        credentialHeaderName: { type: "string", description: "Header/env variable name for API_KEY (optional)" },
+        defaultTool: { type: "string", description: "Default tool name (optional)" },
+        isEnabled: { type: "boolean", description: "Whether it is enabled (default true)" },
       },
       required: ["name", "serverConfigJson"],
     },
@@ -47,21 +47,21 @@ const tools = [
   {
     name: "mip_update_mcp_server",
     description:
-      "Mevcut bir MCP server'ı id ile günceller (isEnabled dahil). Verilen alanlar mevcut kaydın üstüne merge edilir.",
+      "Updates an existing MCP server by id (including isEnabled). The given fields are merged over the current record.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "number", description: "Güncellenecek MCP server ID" },
-        name: { type: "string", description: "Yeni ad (opsiyonel)" },
-        serverConfigJson: { type: "string", description: "Yeni config JSON (opsiyonel)" },
+        id: { type: "number", description: "ID of the MCP server to update" },
+        name: { type: "string", description: "New name (optional)" },
+        serverConfigJson: { type: "string", description: "New config JSON (optional)" },
         authType: {
           type: "string",
           enum: ["NONE", "API_KEY", "BEARER", "BASIC", "OAUTH2", "CLIENT_CERT"],
-          description: "Yeni auth tipi (opsiyonel)",
+          description: "New auth type (optional)",
         },
-        credentialId: { type: "string", description: "Yeni credential ID (opsiyonel)" },
-        credentialHeaderName: { type: "string", description: "Yeni header adı (opsiyonel)" },
-        defaultTool: { type: "string", description: "Yeni varsayılan tool (opsiyonel)" },
+        credentialId: { type: "string", description: "New credential ID (optional)" },
+        credentialHeaderName: { type: "string", description: "New header name (optional)" },
+        defaultTool: { type: "string", description: "New default tool (optional)" },
         isEnabled: { type: "boolean", description: "Enabled/disabled (optional)" },
       },
       required: ["id"],
@@ -69,33 +69,33 @@ const tools = [
   },
   {
     name: "mip_delete_mcp_server",
-    description: "Belirli bir MCP server'ı id ile siler.",
+    description: "Deletes a specific MCP server by id.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "Silinecek MCP server ID" } },
+      properties: { id: { type: "number", description: "ID of the MCP server to delete" } },
       required: ["id"],
     },
   },
   {
     name: "mip_sync_mcp_server",
     description:
-      "MCP server'a bağlanıp sunduğu tool'ları senkronize eder (refresh-tools). Başarılıysa connectionStatus SYNCED olur ve toolsCount dolar. Yeni oluşturulan/güncellenen bir MCP server'ın tool'larını görebilmek için önce bu çağrılır.",
+      "Connects to the MCP server and synchronizes the tools it exposes (refresh-tools). On success connectionStatus becomes SYNCED and toolsCount is populated. Call this first to see the tools of a newly created/updated MCP server.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "Sync edilecek MCP server ID" } },
+      properties: { id: { type: "number", description: "ID of the MCP server to sync" } },
       required: ["id"],
     },
   },
   {
     name: "mip_list_mcp_server_tools",
     description:
-      "Bir MCP server'ın (sync sonrası) keşfedilen tool'larını döner: name, description, inputSchemaJson, outputSchemaJson. Sayfalıdır. Önce mip_sync_mcp_server ile SYNCED olmalıdır.",
+      "Returns the tools discovered for an MCP server (after a sync): name, description, inputSchemaJson, outputSchemaJson. Paginated. The server must be SYNCED via mip_sync_mcp_server first.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "number", description: "MCP server ID" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 25)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 25)" },
       },
       required: ["id"],
     },

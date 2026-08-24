@@ -13,8 +13,8 @@ const tools = [
       type: "object",
       properties: {
         filter: { type: "string", description: "Optional: text occurring in flowId/name/type/value" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },
@@ -51,10 +51,10 @@ const tools = [
       properties: {
         id: { type: "number", description: "ID of the rule to update (from mip_list_message_search_rules)" },
         flowId: { type: "string", description: "New flow ID (optional)" },
-        name: { type: "string", description: "Yeni ad (opsiyonel)" },
+        name: { type: "string", description: "New name (optional)" },
         type: { type: "string", enum: ["XPATH", "JSON_PATH"], description: "New type (optional)" },
         value: { type: "string", description: "New expression (optional)" },
-        isEnabled: { type: "boolean", description: "Etkin/pasif (opsiyonel)" },
+        isEnabled: { type: "boolean", description: "Enabled/disabled (optional)" },
       },
       required: ["id"],
     },

@@ -8,19 +8,19 @@ import axios from "axios";
 import { BASE_URL } from "../config.js";
 
 const SYNC = `${BASE_URL}/api/api-management/sync`;
-const ONCONFLICT = { type: "string", enum: ["ERROR", "SKIP"], description: "Aynı isimde gateway consumer/credential varsa: ERROR=hata (varsayılan), SKIP=atla" };
+const ONCONFLICT = { type: "string", enum: ["ERROR", "SKIP"], description: "If a gateway consumer/credential of the same name exists: ERROR=fail (default), SKIP=skip" };
 
 const tools = [
   {
     name: "mip_sync_service_user_to_gateway",
     description:
-      "Bir MIP service user'ını API Gateway'e consumer olarak senkronize eder (POST /api/api-management/sync/service-users/{id}). Böylece consumer, route'larda consumer-restriction ile kullanılabilir VE MIP backend principal'ı tanır ('Invalid user authorization' önlenir). includeCredentials=true (varsayılan) service user'ın basic-auth kimliğini gateway consumer'ına kopyalar — gateway'de basic-auth ile çağırabilmek için gerekir.",
+      "Synchronizes a MIP service user to the API Gateway as a consumer (POST /api/api-management/sync/service-users/{id}). This lets the consumer be used with consumer-restriction on routes AND makes the MIP backend recognize the principal (avoiding 'Invalid user authorization'). includeCredentials=true (default) copies the service user's basic-auth credentials to the gateway consumer — required to call through the gateway with basic-auth.",
     inputSchema: {
       type: "object",
       properties: {
         serviceUserId: { type: "number", description: "MIP service user ID (mip_list_service_users / mip_list_pure_service_users)" },
-        includeCredentials: { type: "boolean", description: "Service user'ın basic-auth kimliğini de kopyala (varsayılan true)" },
-        consumerUsername: { type: "string", description: "Gateway'deki consumer adı (varsayılan: service user adı)" },
+        includeCredentials: { type: "boolean", description: "Also copy the service user's basic-auth credentials (default true)" },
+        consumerUsername: { type: "string", description: "Consumer name on the gateway (default: the service user's name)" },
         onConflict: ONCONFLICT,
       },
       required: ["serviceUserId"],
@@ -28,29 +28,29 @@ const tools = [
   },
   {
     name: "mip_unsync_service_user_from_gateway",
-    description: "Bir service user'ın gateway consumer senkronizasyonunu kaldırır (DELETE /api/api-management/sync/service-users/{id}). NOT: kullanıcı includeCredentials ile sync edildiyse credential'lar da gateway'de olur; varsayılan strategy=ERROR bu durumda 'Unlink credentials first' hatası verir — hem kullanıcıyı hem credential'ları kaldırmak için strategy=CASCADE kullan.",
+    description: "Removes a service user's gateway consumer synchronization (DELETE /api/api-management/sync/service-users/{id}). NOTE: if the user was synced with includeCredentials, the credentials are on the gateway too; the default strategy=ERROR then fails with 'Unlink credentials first' — use strategy=CASCADE to remove both the user and the credentials.",
     inputSchema: {
       type: "object",
       properties: {
         serviceUserId: { type: "number", description: "MIP service user ID" },
-        strategy: { type: "string", enum: ["ERROR", "CASCADE", "RETAIN_CREDENTIALS"], description: "ERROR=credential varsa hata (varsayılan); CASCADE=credential'ları da kaldır; RETAIN_CREDENTIALS=credential'ları gateway'de bırak" },
+        strategy: { type: "string", enum: ["ERROR", "CASCADE", "RETAIN_CREDENTIALS"], description: "ERROR=fail if credentials exist (default); CASCADE=remove the credentials too; RETAIN_CREDENTIALS=leave the credentials on the gateway" },
       },
       required: ["serviceUserId"],
     },
   },
   {
     name: "mip_list_service_user_basic_auth_credentials",
-    description: "Bir service user'ın basic-auth kimliklerini (credential) listeler (GET /api/service-users/{id}/basic-authentication-credentials). Buradaki credentialId'leri mip_sync_basic_auth_credential_to_gateway ile tek tek senkronlayabilirsin.",
+    description: "Lists a service user's basic-auth credentials (GET /api/service-users/{id}/basic-authentication-credentials). The credentialIds returned here can be synced individually with mip_sync_basic_auth_credential_to_gateway.",
     inputSchema: { type: "object", properties: { serviceUserId: { type: "number", description: "MIP service user ID" } }, required: ["serviceUserId"] },
   },
   {
     name: "mip_sync_basic_auth_credential_to_gateway",
-    description: "Bir service user'ın belirli bir basic-auth kimliğini gateway'e consumer credential'ı olarak senkronize eder (POST /api/api-management/sync/basic-authentication-credentials/{credentialId}). Tüm kullanıcı yerine sadece bir kimliği sync etmek için.",
+    description: "Synchronizes one specific basic-auth credential of a service user to the gateway as a consumer credential (POST /api/api-management/sync/basic-authentication-credentials/{credentialId}). Use this to sync a single credential instead of the whole user.",
     inputSchema: {
       type: "object",
       properties: {
         credentialId: { type: "number", description: "Basic-auth credential ID (mip_list_service_user_basic_auth_credentials)" },
-        consumerUsername: { type: "string", description: "Hedef gateway consumer adı (opsiyonel)" },
+        consumerUsername: { type: "string", description: "Target gateway consumer name (optional)" },
         onConflict: ONCONFLICT,
       },
       required: ["credentialId"],
@@ -58,22 +58,22 @@ const tools = [
   },
   {
     name: "mip_unsync_basic_auth_credential_from_gateway",
-    description: "Bir basic-auth kimliğinin gateway senkronizasyonunu kaldırır (DELETE /api/api-management/sync/basic-authentication-credentials/{credentialId}).",
+    description: "Removes a basic-auth credential's gateway synchronization (DELETE /api/api-management/sync/basic-authentication-credentials/{credentialId}).",
     inputSchema: { type: "object", properties: { credentialId: { type: "number", description: "Basic-auth credential ID" } }, required: ["credentialId"] },
   },
   {
     name: "mip_list_service_user_jwt_credentials",
-    description: "Bir service user'ın JWT kimliklerini (credential) listeler (GET /api/service-users/{id}/jwt-authentication-credentials). credentialId'leri mip_sync_jwt_credential_to_gateway ile tek tek senkronlayabilirsin.",
+    description: "Lists a service user's JWT credentials (GET /api/service-users/{id}/jwt-authentication-credentials). The credentialIds can be synced individually with mip_sync_jwt_credential_to_gateway.",
     inputSchema: { type: "object", properties: { serviceUserId: { type: "number", description: "MIP service user ID" } }, required: ["serviceUserId"] },
   },
   {
     name: "mip_sync_jwt_credential_to_gateway",
-    description: "Bir service user'ın belirli bir JWT kimliğini gateway'e consumer credential'ı olarak senkronize eder (POST /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
+    description: "Synchronizes one specific JWT credential of a service user to the gateway as a consumer credential (POST /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
     inputSchema: {
       type: "object",
       properties: {
         credentialId: { type: "number", description: "JWT credential ID (mip_list_service_user_jwt_credentials)" },
-        consumerUsername: { type: "string", description: "Hedef gateway consumer adı (opsiyonel)" },
+        consumerUsername: { type: "string", description: "Target gateway consumer name (optional)" },
         onConflict: ONCONFLICT,
       },
       required: ["credentialId"],
@@ -81,7 +81,7 @@ const tools = [
   },
   {
     name: "mip_unsync_jwt_credential_from_gateway",
-    description: "Bir JWT kimliğinin gateway senkronizasyonunu kaldırır (DELETE /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
+    description: "Removes a JWT credential's gateway synchronization (DELETE /api/api-management/sync/jwt-authentication-credentials/{credentialId}).",
     inputSchema: { type: "object", properties: { credentialId: { type: "number", description: "JWT credential ID" } }, required: ["credentialId"] },
   },
 ];

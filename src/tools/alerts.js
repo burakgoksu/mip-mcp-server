@@ -7,11 +7,11 @@ const tools = [
   {
     name: "mip_list_alerts",
     description:
-      "E-posta alert listesini döner. Her alert: alertName, alertMailList (alıcılar), postingFrequency (cron) + postingFrequencyDesc (okunur açıklama), alertBodyType, integrationFlows. Sayfalıdır. filter alertName üzerinde arar.",
+      "Returns the e-mail alert list. Each alert: alertName, alertMailList (recipients), postingFrequency (cron) + postingFrequencyDesc (human-readable), alertBodyType, integrationFlows. Paginated. filter searches alertName.",
     inputSchema: {
       type: "object",
       properties: {
-        filter: { type: "string", description: "Opsiyonel: alert adında geçen metin" },
+        filter: { type: "string", description: "Optional: text occurring in the alert name" },
         page: { type: "number", description: "Page (1-based, default 1)" },
         size: { type: "number", description: "Records per page (default 200)" },
       },
@@ -21,36 +21,36 @@ const tools = [
   {
     name: "mip_create_alert",
     description:
-      "Yeni e-posta alert'i oluşturur. Belirtilen flow'lar için postingFrequency (cron) zamanında alertMailList adreslerine mail gönderir. Template isteğe bağlıdır: useTemplate=true ise alertTemplate (inline HTML/metin içerik) ve alertBodyType zorunludur. Not: mail gönderimi için önce mip_save_alert_mail_config ile SMTP ayarlanmalıdır.",
+      "Creates a new e-mail alert. Sends mail to the alertMailList addresses at the postingFrequency (cron) time for the given flows. The template is optional: if useTemplate=true, alertTemplate (inline HTML/text content) and alertBodyType are required. Note: SMTP must be configured first via mip_save_alert_mail_config for mail to be sent.",
     inputSchema: {
       type: "object",
       properties: {
-        alertName: { type: "string", description: "Alert adı (benzersiz)" },
+        alertName: { type: "string", description: "Alert name (unique)" },
         alertMailList: {
           type: "string",
-          description: "Alıcı e-posta adres(ler)i (virgülle ayrılabilir)",
+          description: "Recipient e-mail address(es) (comma-separated)",
         },
         postingFrequency: {
           type: "string",
-          description: "Gönderim zamanlaması, cron ifadesi (ör. '0 0 8 * * ?' = her gün 08:00)",
+          description: "Send schedule, a cron expression (e.g. '0 0 8 * * ?' = every day at 08:00)",
         },
         flowIds: {
           type: "array",
           items: { type: "string" },
-          description: "Alert'in kapsadığı flow ID listesi (en az 1). Ör. ['F_CALCULATOR_EGITIM']",
+          description: "List of flow IDs the alert covers (at least 1). E.g. ['F_CALCULATOR_EGITIM']",
         },
         useTemplate: {
           type: "boolean",
-          description: "Özel şablon kullanılsın mı (varsayılan false). true ise alertTemplate + alertBodyType zorunlu.",
+          description: "Whether to use a custom template (default false). If true, alertTemplate + alertBodyType are required.",
         },
         alertTemplate: {
           type: "string",
-          description: "Şablon içeriği (inline HTML/metin). useTemplate=true ise zorunlu.",
+          description: "Template content (inline HTML/text). Required when useTemplate=true.",
         },
         alertBodyType: {
           type: "string",
           enum: ["HTML", "JSON", "CSV", "XML", "TEXT"],
-          description: "Şablon tipi. useTemplate=true ise zorunlu.",
+          description: "Template type. Required when useTemplate=true.",
         },
       },
       required: ["alertName", "alertMailList", "postingFrequency", "flowIds"],
@@ -59,25 +59,25 @@ const tools = [
   {
     name: "mip_update_alert",
     description:
-      "Mevcut bir alert'i günceller. id (alertId) zorunlu; verilen alanlar mevcut kaydın üstüne merge edilir (diğerleri korunur).",
+      "Updates an existing alert. id (alertId) is required; the given fields are merged over the current record (the rest are preserved).",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Güncellenecek alertId (mip_list_alerts ile alınır)" },
+        id: { type: "string", description: "alertId to update (from mip_list_alerts)" },
         alertName: { type: "string", description: "New name (optional)" },
-        alertMailList: { type: "string", description: "Yeni alıcı listesi (opsiyonel)" },
-        postingFrequency: { type: "string", description: "Yeni cron zamanlaması (opsiyonel)" },
+        alertMailList: { type: "string", description: "New recipient list (optional)" },
+        postingFrequency: { type: "string", description: "New cron schedule (optional)" },
         flowIds: {
           type: "array",
           items: { type: "string" },
-          description: "Yeni flow ID listesi (opsiyonel; verilirse mevcut listenin yerini alır)",
+          description: "New flow ID list (optional; replaces the current list if given)",
         },
-        useTemplate: { type: "boolean", description: "Şablon açık/kapalı (opsiyonel)" },
-        alertTemplate: { type: "string", description: "Yeni şablon içeriği (opsiyonel)" },
+        useTemplate: { type: "boolean", description: "Template on/off (optional)" },
+        alertTemplate: { type: "string", description: "New template content (optional)" },
         alertBodyType: {
           type: "string",
           enum: ["HTML", "JSON", "CSV", "XML", "TEXT"],
-          description: "Yeni şablon tipi (opsiyonel)",
+          description: "New template type (optional)",
         },
       },
       required: ["id"],
@@ -85,46 +85,46 @@ const tools = [
   },
   {
     name: "mip_delete_alert",
-    description: "Belirli bir alert'i siler.",
+    description: "Deletes a specific alert.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Silinecek alertId" },
+        id: { type: "string", description: "alertId to delete" },
       },
       required: ["id"],
     },
   },
   {
     name: "mip_get_alert_mail_config",
-    description: "Alert e-postaları için tanımlı SMTP ayarını döner (yoksa boş).",
+    description: "Returns the SMTP settings configured for alert e-mails (empty if none).",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_save_alert_mail_config",
     description:
-      "Alert e-postaları için SMTP ayarını kaydeder/günceller. authentication NONE değilse credentialId zorunludur (SMTP kullanıcı/parolasını tutan MIP credential).",
+      "Saves/updates the SMTP settings for alert e-mails. credentialId is required unless authentication is NONE (the MIP credential holding the SMTP user/password).",
     inputSchema: {
       type: "object",
       properties: {
-        from: { type: "string", description: "Gönderen e-posta adresi (ör. alerts@example.com)" },
-        address: { type: "string", description: "SMTP sunucu adresi (ör. smtp.gmail.com)" },
-        port: { type: "number", description: "SMTP portu (varsayılan 587)" },
-        connectionTimeout: { type: "number", description: "Bağlantı zaman aşımı ms (varsayılan 15000)" },
-        readTimeout: { type: "number", description: "Okuma zaman aşımı ms (varsayılan 60000)" },
-        writeTimeout: { type: "number", description: "Yazma zaman aşımı ms (varsayılan 60000)" },
+        from: { type: "string", description: "Sender e-mail address (e.g. alerts@example.com)" },
+        address: { type: "string", description: "SMTP server address (e.g. smtp.gmail.com)" },
+        port: { type: "number", description: "SMTP port (default 587)" },
+        connectionTimeout: { type: "number", description: "Connection timeout in ms (default 15000)" },
+        readTimeout: { type: "number", description: "Read timeout in ms (default 60000)" },
+        writeTimeout: { type: "number", description: "Write timeout in ms (default 60000)" },
         authentication: {
           type: "string",
           enum: ["NONE", "LOGIN", "PLAIN", "CRAM_MD5", "XOAUTH2"],
-          description: "Kimlik doğrulama yöntemi (varsayılan LOGIN)",
+          description: "Authentication method (default LOGIN)",
         },
         credentialId: {
           type: "string",
-          description: "SMTP kimlik bilgisini tutan MIP credential ID (authentication NONE değilse zorunlu)",
+          description: "MIP credential ID holding the SMTP credentials (required unless authentication is NONE)",
         },
         encryption: {
           type: "string",
           enum: ["NONE", "SMTPS", "STARTTLS"],
-          description: "Şifreleme (varsayılan STARTTLS)",
+          description: "Encryption (default STARTTLS)",
         },
       },
       required: ["from", "address"],
@@ -132,7 +132,7 @@ const tools = [
   },
   {
     name: "mip_delete_alert_mail_config",
-    description: "Tanımlı SMTP alert ayarını siler.",
+    description: "Deletes the configured SMTP alert settings.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
 ];

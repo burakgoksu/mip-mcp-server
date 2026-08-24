@@ -13,8 +13,8 @@ const tools = [
       type: "object",
       properties: {
         filter: { type: "string", description: "Optional: text occurring in configKey" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },

@@ -45,39 +45,39 @@ function buildConsumer(args) {
   return body;
 }
 
-const NODE_ITEM = { type: "object", properties: { host: { type: "string", description: "Upstream host:port (ör. 'mip-backend:9000')" }, weight: { type: "number", description: "Ağırlık (varsayılan 1)" } }, required: ["host"] };
+const NODE_ITEM = { type: "object", properties: { host: { type: "string", description: "Upstream host:port (e.g. 'mip-backend:9000')" }, weight: { type: "number", description: "Weight (default 1)" } }, required: ["host"] };
 
 // Route'a plugin eklemek için dostça kısayollar (UI'daki 5 toggle) + ham escape-hatch.
 const PLUGIN_PROPS = {
-  rateLimit: { type: "object", description: "Rate Limiting kısayolu (limit-count).", properties: { count: { type: "number", description: "İzin verilen istek sayısı" }, window: { type: "number", description: "Pencere, saniye (varsayılan 60)" }, rejectedCode: { type: "number", description: "Limit aşılınca HTTP kodu (varsayılan 429)" } }, required: ["count"] },
-  ipWhitelist: { type: "array", items: { type: "string" }, description: "IP White List kısayolu (ip-restriction): izinli IP/CIDR (ör. ['192.168.0.0/24'])." },
-  ipMessage: { type: "string", description: "IP reddinde dönecek mesaj (varsayılan 'Access denied')." },
-  allowedConsumers: { type: "array", items: { type: "string" }, description: "Consumer Restriction kısayolu: yalnız bu consumer adları erişebilir." },
-  openIdConnect: { type: "object", description: "OpenID Connect kısayolu (openid-connect).", properties: { discovery: { type: "string" }, client_id: { type: "string" }, client_secret: { type: "string" } }, required: ["discovery", "client_id", "client_secret"] },
-  basicAuth: { type: "boolean", description: "Basic Auth plugin'ini aç (basic-auth): consumer'ların basic-auth kimliğini zorunlu kılar." },
-  plugins: { type: "object", description: "İleri kullanım: ham APISIX plugin objesi. Kısayollarla merge edilir; aynı anahtarda bunu ezer." },
+  rateLimit: { type: "object", description: "Rate Limiting shortcut (limit-count).", properties: { count: { type: "number", description: "Number of requests allowed" }, window: { type: "number", description: "Window in seconds (default 60)" }, rejectedCode: { type: "number", description: "HTTP code returned once the limit is exceeded (default 429)" } }, required: ["count"] },
+  ipWhitelist: { type: "array", items: { type: "string" }, description: "IP White List shortcut (ip-restriction): allowed IPs/CIDRs (e.g. ['192.168.0.0/24'])." },
+  ipMessage: { type: "string", description: "Message returned on IP rejection (default 'Access denied')." },
+  allowedConsumers: { type: "array", items: { type: "string" }, description: "Consumer Restriction shortcut: only these consumer names may access it." },
+  openIdConnect: { type: "object", description: "OpenID Connect shortcut (openid-connect).", properties: { discovery: { type: "string" }, client_id: { type: "string" }, client_secret: { type: "string" } }, required: ["discovery", "client_id", "client_secret"] },
+  basicAuth: { type: "boolean", description: "Enable the Basic Auth plugin (basic-auth): requires consumers to present basic-auth credentials." },
+  plugins: { type: "object", description: "Advanced use: raw APISIX plugin object. Merged with the shortcuts; on a shared key this one wins." },
 };
 
 const tools = [
   // ── Routes ──
   {
     name: "mip_list_api_routes",
-    description: "API Management > Routes: gateway'de yayınlanan API route'larını listeler (id, name, uri, methods, upstream nodes, plugins, endpointAddress, status). GET /api/api-management/routes.",
+    description: "API Management > Routes: lists the API routes published on the gateway (id, name, uri, methods, upstream nodes, plugins, endpointAddress, status). GET /api/api-management/routes.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_create_api_route",
     description:
-      "Yeni API route oluşturur (POST /api/api-management/routes). uri gateway'de dinlenecek yol (ör. /http/my-api); nodes en az bir upstream host:port. Plugin eklemek için dostça kısayollar kullan: rateLimit, ipWhitelist, allowedConsumers, openIdConnect, basicAuth (UI'daki 5 toggle). Gerekirse plugins ile ham APISIX objesi de verilebilir. Gateway proxy-rewrite/http-logger'ı kendi ekler.",
+      "Creates a new API route (POST /api/api-management/routes). uri is the path the gateway listens on (e.g. /http/my-api); nodes needs at least one upstream host:port. Use the friendly shortcuts to add plugins: rateLimit, ipWhitelist, allowedConsumers, openIdConnect, basicAuth (the 5 toggles in the UI). A raw APISIX object can also be passed via plugins if needed. The gateway adds proxy-rewrite/http-logger itself.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Route ID (benzersiz)" },
-        name: { type: "string", description: "Route adı" },
-        uri: { type: "string", description: "Gateway yolu (ör. /http/my-api)" },
-        methods: { type: "array", items: { type: "string" }, description: "HTTP metotları (ör. ['GET','POST']) — boşsa tümü" },
-        nodes: { type: "array", items: NODE_ITEM, description: "Upstream düğümleri (host:port + weight)" },
-        upstreamType: { type: "string", description: "Load-balance tipi (varsayılan 'roundrobin')" },
+        id: { type: "string", description: "Route ID (unique)" },
+        name: { type: "string", description: "Route name" },
+        uri: { type: "string", description: "Gateway path (e.g. /http/my-api)" },
+        methods: { type: "array", items: { type: "string" }, description: "HTTP methods (e.g. ['GET','POST']) — all of them if empty" },
+        nodes: { type: "array", items: NODE_ITEM, description: "Upstream nodes (host:port + weight)" },
+        upstreamType: { type: "string", description: "Load-balance type (default 'roundrobin')" },
         ...PLUGIN_PROPS,
       },
       required: ["id", "name", "uri", "nodes"],
@@ -85,11 +85,11 @@ const tools = [
   },
   {
     name: "mip_update_api_route",
-    description: "Bir API route'unu günceller (PUT /api/api-management/routes/{id}). Gönderilen alanlarla route yeniden yazılır (name, uri, methods, nodes) — plugin'ler de kısayollar (rateLimit/ipWhitelist/allowedConsumers/openIdConnect/basicAuth) veya ham plugins ile yeniden verilir. Not: route tümüyle yeniden yazılır, o yüzden korunmasını istediğin plugin'leri de tekrar gönder.",
+    description: "Updates an API route (PUT /api/api-management/routes/{id}). The route is rewritten with the fields sent (name, uri, methods, nodes) — plugins are likewise re-supplied via the shortcuts (rateLimit/ipWhitelist/allowedConsumers/openIdConnect/basicAuth) or raw plugins. Note: the route is rewritten in full, so re-send any plugins you want to keep.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Güncellenecek Route ID" },
+        id: { type: "string", description: "ID of the route to update" },
         name: { type: "string" },
         uri: { type: "string" },
         methods: { type: "array", items: { type: "string" } },
@@ -102,59 +102,59 @@ const tools = [
   },
   {
     name: "mip_delete_api_route",
-    description: "Bir API route'unu siler (DELETE /api/api-management/routes/{id}).",
+    description: "Deletes an API route (DELETE /api/api-management/routes/{id}).",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "Route ID" } }, required: ["id"] },
   },
 
   // ── Consumers ──
   {
     name: "mip_list_api_consumers",
-    description: "API Management > Consumer: gateway tüketicilerini listeler (username + plugins/kimlik). GET /api/api-management/consumers.",
+    description: "API Management > Consumer: lists the gateway consumers (username + plugins/credentials). GET /api/api-management/consumers.",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_create_api_consumer",
-    description: "Yeni gateway consumer'ı oluşturur (POST /api/api-management/consumers). Opsiyonel kimlik: credentialType BASIC (password) ya da JWT (jwtKey/jwtSecret/jwtAlgorithm).",
+    description: "Creates a new gateway consumer (POST /api/api-management/consumers). Optional credentials: credentialType BASIC (password) or JWT (jwtKey/jwtSecret/jwtAlgorithm).",
     inputSchema: {
       type: "object",
       properties: {
-        username: { type: "string", description: "Consumer adı (benzersiz)" },
-        credentialType: { type: "string", enum: ["BASIC", "JWT"], description: "Opsiyonel kimlik tipi" },
-        password: { type: "string", description: "BASIC için şifre" },
-        jwtKey: { type: "string", description: "JWT için key (varsayılan username)" },
-        jwtSecret: { type: "string", description: "JWT için secret" },
-        jwtAlgorithm: { type: "string", description: "JWT algoritması (ör. HS256)" },
-        plugins: { type: "object", description: "Ham plugin objesi (opsiyonel, ileri kullanım)" },
+        username: { type: "string", description: "Consumer name (unique)" },
+        credentialType: { type: "string", enum: ["BASIC", "JWT"], description: "Optional credential type" },
+        password: { type: "string", description: "Password for BASIC" },
+        jwtKey: { type: "string", description: "Key for JWT (defaults to username)" },
+        jwtSecret: { type: "string", description: "Secret for JWT" },
+        jwtAlgorithm: { type: "string", description: "JWT algorithm (e.g. HS256)" },
+        plugins: { type: "object", description: "Raw plugin object (optional, advanced use)" },
       },
       required: ["username"],
     },
   },
   {
     name: "mip_update_api_consumer",
-    description: "Bir consumer'ın plugin'lerini günceller (PUT /api/api-management/consumers/{username}). plugins ham APISIX plugin objesidir.",
-    inputSchema: { type: "object", properties: { username: { type: "string" }, plugins: { type: "object", description: "Ham plugin objesi" } }, required: ["username"] },
+    description: "Updates a consumer's plugins (PUT /api/api-management/consumers/{username}). plugins is a raw APISIX plugin object.",
+    inputSchema: { type: "object", properties: { username: { type: "string" }, plugins: { type: "object", description: "Raw plugin object" } }, required: ["username"] },
   },
   {
     name: "mip_delete_api_consumer",
-    description: "Bir gateway consumer'ını siler (DELETE /api/api-management/consumers/{username}).",
+    description: "Deletes a gateway consumer (DELETE /api/api-management/consumers/{username}).",
     inputSchema: { type: "object", properties: { username: { type: "string" } }, required: ["username"] },
   },
 
   // ── Rejected Requests ──
   {
     name: "mip_search_rejected_requests",
-    description: "API Management > Rejected Requests: gateway tarafından reddedilen istekleri arar (GET /api/api-management/rejected-requests, sayfalı). Tarih verilmezse son 24 saat. clientIp/requestUri/statusCode/consumerName ile filtrelenir.",
+    description: "API Management > Rejected Requests: searches requests rejected by the gateway (GET /api/api-management/rejected-requests, paginated). Defaults to the last 24 hours if no date is given. Filterable by clientIp/requestUri/statusCode/consumerName.",
     inputSchema: {
       type: "object",
       properties: {
-        from: { type: "string", description: "Başlangıç (ISO 8601) — varsayılan 24 saat önce" },
-        to: { type: "string", description: "Bitiş (ISO 8601) — varsayılan şimdi" },
-        clientIp: { type: "string", description: "İstemci IP filtresi" },
-        requestUri: { type: "string", description: "URI filtresi" },
-        statusCode: { type: "string", description: "HTTP durum kodu (ör. '403')" },
-        consumerName: { type: "string", description: "Consumer adı filtresi" },
-        page: { type: "number", description: "Sayfa (0'dan başlar)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 50)" },
+        from: { type: "string", description: "Start (ISO 8601) — defaults to 24 hours ago" },
+        to: { type: "string", description: "End (ISO 8601) — defaults to now" },
+        clientIp: { type: "string", description: "Client IP filter" },
+        requestUri: { type: "string", description: "URI filter" },
+        statusCode: { type: "string", description: "HTTP status code (e.g. '403')" },
+        consumerName: { type: "string", description: "Consumer name filter" },
+        page: { type: "number", description: "Page (0-based)" },
+        size: { type: "number", description: "Records per page (default 50)" },
       },
       required: [],
     },

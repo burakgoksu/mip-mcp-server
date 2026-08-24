@@ -7,37 +7,37 @@ const tools = [
   // cron sıklıkları. /healthcheck-service servisi üzerinden.
   {
     name: "mip_list_alert_config_emails",
-    description: "Alert Configurations > Alert Mail Receivers: uyarı maillerinin gönderileceği e-posta adreslerini listeler ([{id,email}]).",
+    description: "Alert Configurations > Alert Mail Receivers: lists the e-mail addresses alert mails are sent to ([{id,email}]).",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_add_alert_config_email",
-    description: "Alert Configurations: uyarı mail alıcısı ekler.",
+    description: "Alert Configurations: adds an alert mail recipient.",
     inputSchema: {
       type: "object",
-      properties: { email: { type: "string", description: "Eklenecek e-posta adresi" } },
+      properties: { email: { type: "string", description: "E-mail address to add" } },
       required: ["email"],
     },
   },
   {
     name: "mip_remove_alert_config_email",
-    description: "Alert Configurations: uyarı mail alıcısını id ile kaldırır (mip_list_alert_config_emails ile alınır).",
+    description: "Alert Configurations: removes an alert mail recipient by id (from mip_list_alert_config_emails).",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "Silinecek mail alıcısı ID" } },
+      properties: { id: { type: "number", description: "ID of the mail recipient to delete" } },
       required: ["id"],
     },
   },
   {
     name: "mip_get_alert_rules",
     description:
-      "Alert Configurations > Alert Rules: her bileşen için eşik kurallarını döner (componentKey, displayName, cpuThresholdPercent, ramThresholdPercent, diskThresholdPercent, responseTimeThresholdMs, dbSizeThresholdGb, connectionPoolThresholdPercent).",
+      "Alert Configurations > Alert Rules: returns the threshold rules for each component (componentKey, displayName, cpuThresholdPercent, ramThresholdPercent, diskThresholdPercent, responseTimeThresholdMs, dbSizeThresholdGb, connectionPoolThresholdPercent).",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_update_alert_rules",
     description:
-      "Alert Configurations: bir veya daha fazla bileşenin eşik kuralını günceller. rules dizisindeki her öğe componentKey ile eşleşen mevcut kuralın üstüne merge edilir (verilmeyen eşikler korunur). Sadece değiştireceğin bileşenleri ver.",
+      "Alert Configurations: updates the threshold rules of one or more components. Each item in the rules array is merged over the existing rule matching its componentKey (thresholds you omit are preserved). Pass only the components you intend to change.",
     inputSchema: {
       type: "object",
       properties: {
@@ -46,17 +46,17 @@ const tools = [
           items: {
             type: "object",
             properties: {
-              componentKey: { type: "string", description: "Bileşen anahtarı (ör. backend-http, elasticsearch-db, activemq, postgres-db, redis, system, frontend-http)" },
-              cpuThresholdPercent: { type: "number", description: "CPU eşiği % (opsiyonel)" },
-              ramThresholdPercent: { type: "number", description: "RAM eşiği % (opsiyonel)" },
-              diskThresholdPercent: { type: "number", description: "Disk eşiği % (opsiyonel)" },
-              responseTimeThresholdMs: { type: "number", description: "Yanıt süresi eşiği ms (opsiyonel)" },
-              dbSizeThresholdGb: { type: "number", description: "DB boyut eşiği GB (opsiyonel)" },
-              connectionPoolThresholdPercent: { type: "number", description: "Bağlantı havuzu eşiği % (opsiyonel)" },
+              componentKey: { type: "string", description: "Component key (e.g. backend-http, elasticsearch-db, activemq, postgres-db, redis, system, frontend-http)" },
+              cpuThresholdPercent: { type: "number", description: "CPU threshold % (optional)" },
+              ramThresholdPercent: { type: "number", description: "RAM threshold % (optional)" },
+              diskThresholdPercent: { type: "number", description: "Disk threshold % (optional)" },
+              responseTimeThresholdMs: { type: "number", description: "Response time threshold in ms (optional)" },
+              dbSizeThresholdGb: { type: "number", description: "DB size threshold in GB (optional)" },
+              connectionPoolThresholdPercent: { type: "number", description: "Connection pool threshold % (optional)" },
             },
             required: ["componentKey"],
           },
-          description: "Güncellenecek kurallar",
+          description: "Rules to update",
         },
       },
       required: ["rules"],
@@ -64,13 +64,13 @@ const tools = [
   },
   {
     name: "mip_get_cron_frequency",
-    description: "Alert Configurations > Cron Frequency: her bileşenin health-check cron sıklığını döner ([{componentName, cronValue}]).",
+    description: "Alert Configurations > Cron Frequency: returns the health-check cron frequency of each component ([{componentName, cronValue}]).",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "mip_update_cron_frequency",
     description:
-      "Alert Configurations: bir veya daha fazla bileşenin health-check cron sıklığını günceller. crons dizisindeki her öğe componentName ile eşleşeni günceller (diğerleri korunur).",
+      "Alert Configurations: updates the health-check cron frequency of one or more components. Each item in the crons array updates the one matching its componentName (the others are preserved).",
     inputSchema: {
       type: "object",
       properties: {
@@ -79,12 +79,12 @@ const tools = [
           items: {
             type: "object",
             properties: {
-              componentName: { type: "string", description: "Bileşen adı (ör. backend-http, postgres-db, redis, system, activemq, elasticsearch-db, frontend-http)" },
-              cronValue: { type: "string", description: "Cron ifadesi (ör. '0 */30 * * * *')" },
+              componentName: { type: "string", description: "Component name (e.g. backend-http, postgres-db, redis, system, activemq, elasticsearch-db, frontend-http)" },
+              cronValue: { type: "string", description: "Cron expression (e.g. '0 */30 * * * *')" },
             },
             required: ["componentName", "cronValue"],
           },
-          description: "Güncellenecek cron'lar",
+          description: "Crons to update",
         },
       },
       required: ["crons"],

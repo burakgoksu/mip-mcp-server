@@ -12,8 +12,8 @@ const tools = [
       type: "object",
       properties: {
         filter: { type: "string", description: "Optional: search within name/ashost/client/sysnr/user/sapRouter" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },
@@ -65,7 +65,7 @@ const tools = [
     description: "Deletes a specific RFC destination by id.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "number", description: "Silinecek destination ID" } },
+      properties: { id: { type: "number", description: "ID of the destination to delete" } },
       required: ["id"],
     },
   },

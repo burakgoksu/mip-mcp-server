@@ -7,20 +7,20 @@ const tools = [
   // ── Monitoring ──
   {
     name: "mip_download_logs",
-    description: "MIP monitoring loglarını indirir. Flow bazlı successful/error/delivering sayılarını döner.",
+    description: "Downloads MIP monitoring logs. Returns per-flow successful/error/delivering counts.",
     inputSchema: {
       type: "object",
       properties: {
-        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
-        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
         type: {
           type: "string",
-          description: "Log tipleri, virgülle ayrılmış: SUCCESS,ERROR,DELIVERING",
+          description: "Log types, comma-separated: SUCCESS,ERROR,DELIVERING",
           default: "SUCCESS,ERROR,DELIVERING",
         },
-        paginationPage: { type: "number", description: "Sayfa numarası (opsiyonel)" },
-        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel)" },
-        paginationSort: { type: "string", description: "Sıralama (opsiyonel, örn: 'desc,flowId')" },
+        paginationPage: { type: "number", description: "Page number (optional)" },
+        paginationSize: { type: "number", description: "Page size (optional)" },
+        paginationSort: { type: "string", description: "Sort (optional, e.g. 'desc,flowId')" },
       },
       required: ["startDate", "endDate"],
     },
@@ -28,27 +28,27 @@ const tools = [
   {
     name: "mip_get_flow_message_logs",
     description:
-      "Bir flow'un MESAJ-BAZLI loglarını zaman damgasıyla döner (monitoring ekranında flow'a tıklayınca açılan liste). " +
-      "Her kayıt: messageId, status, startDate/endDate (milisaniye hassasiyetli timestamp), ERROR kayıtlarında ayrıca nodeId/errorMessage. " +
-      "Saat-bazlı hacim/yoğunluk analizi için bunu kullanın — mip_download_logs yalnızca toplam sayı verir, zaman bilgisi içermez. " +
-      "ÖNEMLİ: 'type' TEK değer kabul eder (SUCCESS | ERROR | DELIVERING); virgüllü/çoklu verince boş (204) döner. Tüm statüler için ayrı ayrı çağırıp birleştirin. " +
-      "startDate/endDate gün seviyesinde filtreler; saatlik kırılım için dönen kayıtların startDate alanından lokal olarak bucket'layın.",
+      "Returns a flow's PER-MESSAGE logs with timestamps (the list that opens when you click a flow on the monitoring screen). " +
+      "Each record: messageId, status, startDate/endDate (millisecond-precision timestamp), plus nodeId/errorMessage on ERROR records. " +
+      "Use this for hourly volume/load analysis — mip_download_logs only gives totals and carries no time information. " +
+      "IMPORTANT: 'type' accepts a SINGLE value (SUCCESS | ERROR | DELIVERING); passing a comma-separated list returns empty (204). Call it once per status and merge the results. " +
+      "startDate/endDate filter at day granularity; for an hourly breakdown, bucket the returned records locally by their startDate field.",
     inputSchema: {
       type: "object",
       properties: {
-        flowId: { type: "string", description: "Flow ID (örn: F_SAP_TO_ICE_EDONUSUM)" },
-        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
-        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        flowId: { type: "string", description: "Flow ID (e.g. F_SAP_TO_ICE_EDONUSUM)" },
+        startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
         type: {
           type: "string",
-          description: "Tek statü değeri",
+          description: "A single status value",
           enum: ["SUCCESS", "ERROR", "DELIVERING"],
           default: "SUCCESS",
         },
-        paginationPage: { type: "number", description: "Sayfa numarası (0 tabanlı, opsiyonel)" },
-        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel, örn: 1000)" },
-        paginationSort: { type: "string", description: "Sıralama (opsiyonel, örn: 'asc,startDate')" },
-        filter: { type: "string", description: "Metin filtresi (opsiyonel)" },
+        paginationPage: { type: "number", description: "Page number (0-based, optional)" },
+        paginationSize: { type: "number", description: "Page size (optional, e.g. 1000)" },
+        paginationSort: { type: "string", description: "Sort (optional, e.g. 'asc,startDate')" },
+        filter: { type: "string", description: "Text filter (optional)" },
       },
       required: ["flowId", "startDate", "endDate"],
     },
@@ -56,19 +56,19 @@ const tools = [
   {
     name: "mip_get_message_counts",
     description:
-      "Zaman bucket'larına göre toplam başarılı/hatalı mesaj sayısını döner (dashboard mesaj grafiği). " +
-      "timeType ile granülarite seçilir: DAY, WEEK, MONTH veya YEAR. SAATLİK (HOUR) DESTEKLENMEZ — saatlik kırılım için mip_get_flow_message_logs kullanın. " +
-      "Not: startDate/endDate parametresi yoktur; paginationSize kadar en güncel bucket döner.",
+      "Returns the total successful/failed message count per time bucket (the dashboard message chart). " +
+      "timeType selects the granularity: DAY, WEEK, MONTH or YEAR. HOURLY (HOUR) IS NOT SUPPORTED — use mip_get_flow_message_logs for an hourly breakdown. " +
+      "Note: there is no startDate/endDate parameter; it returns the most recent buckets, as many as paginationSize.",
     inputSchema: {
       type: "object",
       properties: {
         timeType: {
           type: "string",
-          description: "Bucket granülaritesi",
+          description: "Bucket granularity",
           enum: ["DAY", "WEEK", "MONTH", "YEAR"],
           default: "DAY",
         },
-        paginationSize: { type: "number", description: "Döndürülecek bucket sayısı (opsiyonel, örn: 60)" },
+        paginationSize: { type: "number", description: "Number of buckets to return (optional, e.g. 60)" },
       },
       required: ["timeType"],
     },
@@ -76,16 +76,16 @@ const tools = [
   {
     name: "mip_get_message_completion_times",
     description:
-      "Monitoring > Performance-Monitoring ekranının verisi: tarih aralığında flow başına mesaj sayısını ve işlem (completion) süresini döner. " +
-      "Performans/yavaş flow analizi için kullanışlıdır (zaman damgası içermez). filter ile flowId/flowName/messageCount içinde arama yapılabilir.",
+      "The data behind the Monitoring > Performance-Monitoring screen: returns the message count and processing (completion) time per flow over a date range. " +
+      "Useful for performance / slow-flow analysis (it carries no timestamps). filter searches within flowId/flowName/messageCount.",
     inputSchema: {
       type: "object",
       properties: {
-        startDate: { type: "string", description: "Başlangıç tarihi 'YYYY-MM-DD' veya 'YYYY-MM-DD HH:mm'" },
-        endDate: { type: "string", description: "Bitiş tarihi 'YYYY-MM-DD' veya 'YYYY-MM-DD HH:mm'" },
-        filter: { type: "string", description: "Opsiyonel: flowId/flowName/messageCount içinde geçen metin" },
-        page: { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        paginationSize: { type: "number", description: "Sayfa boyutu (opsiyonel)" },
+        startDate: { type: "string", description: "Start date 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm'" },
+        endDate: { type: "string", description: "End date 'YYYY-MM-DD' or 'YYYY-MM-DD HH:mm'" },
+        filter: { type: "string", description: "Optional: text occurring in flowId/flowName/messageCount" },
+        page: { type: "number", description: "Page (1-based, default 1)" },
+        paginationSize: { type: "number", description: "Page size (optional)" },
       },
       required: ["startDate", "endDate"],
     },
@@ -93,35 +93,35 @@ const tools = [
   {
     name: "mip_generate_monitoring_report",
     description:
-      "Belirtilen tarih (ve opsiyonel saat) aralığındaki monitoring mesajlarını çekip çok sayfalı bir EXCEL (.xlsx) raporu üretir ve MIP_DOWNLOAD_DIR'e kaydeder. " +
-      "Sayfalar: Özet, Saat (saat-bazlı dağılım + en sakin/yoğun saat), Gün x Saat ısı haritası, Flow x Saat ısı haritası, Günlük Toplam, Flow Özet. " +
-      "Bakım/güncelleme için en sakin saati bulmak ya da hacim analizi için kullanılır. Saat damgaları MIP sistem saatiyle (ham) işlenir, saat kayması düzeltmesi UYGULANMAZ. " +
-      "Not: startTime/endTime verilirse her gün içinde yalnızca o saat penceresindeki mesajlar sayılır.",
+      "Fetches the monitoring messages in the given date (and optional time) range, produces a multi-sheet EXCEL (.xlsx) report and saves it to MIP_DOWNLOAD_DIR. " +
+      "Sheets: Summary, Hour (hourly distribution + quietest/busiest hour), Day x Hour heat map, Flow x Hour heat map, Daily Total, Flow Summary. " +
+      "Used to find the quietest hour for maintenance/upgrades, or for volume analysis. Timestamps are processed in MIP system time (raw); NO clock-offset correction is applied. " +
+      "Note: if startTime/endTime are given, only the messages inside that time window of each day are counted.",
     inputSchema: {
       type: "object",
       properties: {
-        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
-        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
-        startTime: { type: "string", description: "Günlük saat penceresi başlangıcı (HH:MM, opsiyonel)" },
-        endTime: { type: "string", description: "Günlük saat penceresi bitişi (HH:MM, opsiyonel)" },
+        startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
+        startTime: { type: "string", description: "Start of the daily time window (HH:MM, optional)" },
+        endTime: { type: "string", description: "End of the daily time window (HH:MM, optional)" },
         flowIds: {
           type: "array",
           items: { type: "string" },
-          description: "Yalnızca bu flow'ları dahil et (opsiyonel; boş = aralıkta aktif tüm flow'lar)",
+          description: "Include only these flows (optional; empty = every flow active in the range)",
         },
         statuses: {
           type: "array",
           items: { type: "string", enum: ["SUCCESS", "ERROR", "DELIVERING"] },
-          description: "Dahil edilecek statüler (opsiyonel; varsayılan: hepsi)",
+          description: "Statuses to include (optional; default: all)",
         },
-        fileName: { type: "string", description: "Çıktı dosya adı (opsiyonel; .xlsx eklenir)" },
+        fileName: { type: "string", description: "Output file name (optional; .xlsx is appended)" },
       },
       required: ["startDate", "endDate"],
     },
   },
   {
     name: "mip_download_payload",
-    description: "Belirli bir messageId'ye ait payload'ı indirir ve dosyaya kaydeder.",
+    description: "Downloads the payload of a specific messageId and saves it to a file.",
     inputSchema: {
       type: "object",
       properties: {
@@ -133,7 +133,7 @@ const tools = [
   },
   {
     name: "mip_download_log_details_payload",
-    description: "Log detaylarına ait payload'ı messageId ve nodeId ile indirir.",
+    description: "Downloads the payload of the log details by messageId and nodeId.",
     inputSchema: {
       type: "object",
       properties: {
@@ -146,7 +146,7 @@ const tools = [
   },
   {
     name: "mip_download_attachment_by_id",
-    description: "Belirli bir attachment ID'si ile attachment indirir.",
+    description: "Downloads an attachment by a specific attachment ID.",
     inputSchema: {
       type: "object",
       properties: {
@@ -157,7 +157,7 @@ const tools = [
   },
   {
     name: "mip_download_all_attachments",
-    description: "messageId ve nodeId'ye ait tüm attachment'ları zip olarak indirir.",
+    description: "Downloads every attachment of a messageId and nodeId as a zip.",
     inputSchema: {
       type: "object",
       properties: {
@@ -169,12 +169,12 @@ const tools = [
   },
   {
     name: "mip_get_system_logs",
-    description: "Sistem log dosyasını tarih aralığına göre indirir.",
+    description: "Downloads the system log file for a date range.",
     inputSchema: {
       type: "object",
       properties: {
-        startDate: { type: "string", description: "Başlangıç tarihi (YYYY-MM-DD)" },
-        endDate: { type: "string", description: "Bitiş tarihi (YYYY-MM-DD)" },
+        startDate: { type: "string", description: "Start date (YYYY-MM-DD)" },
+        endDate: { type: "string", description: "End date (YYYY-MM-DD)" },
       },
       required: ["startDate", "endDate"],
     },

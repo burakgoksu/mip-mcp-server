@@ -24,7 +24,7 @@ const CONN_PROPS = {
   ashost: { type: "string", description: "SAP application server host (when destinationId is not given)" },
   sysnr: { type: "string", description: "SAP system number (e.g. '00')" },
   client: { type: "string", description: "SAP client (e.g. '100')" },
-  user: { type: "string", description: "SAP kullanıcı adı" },
+  user: { type: "string", description: "SAP user name" },
   password: { type: "string", description: "SAP password" },
   lang: { type: "string", description: "Session language (e.g. 'EN') — optional" },
 };

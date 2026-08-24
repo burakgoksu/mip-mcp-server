@@ -5,56 +5,56 @@ const tools = [
   // ── Service Users ──
   {
     name: "mip_list_service_users",
-    description: "MIP'teki service user'ları listeler. MIP UI veya açılan servislere erişmek için kullanılan kullanıcılar.",
+    description: "Lists MIP service users. These are the users used to access the MIP UI or the exposed services.",
     inputSchema: {
       type: "object",
       properties: {
-        page:   { type: "number", description: "Sayfa numarası (0'dan başlar, varsayılan: 0)" },
-        size:   { type: "number", description: "Sayfa boyutu (varsayılan: 50)" },
-        search: { type: "string", description: "Kullanıcı adı veya e-posta ile filtrele (opsiyonel)" },
+        page:   { type: "number", description: "Page number (0-based, default: 0)" },
+        size:   { type: "number", description: "Page size (default: 50)" },
+        search: { type: "string", description: "Filter by user name or e-mail (optional)" },
       },
       required: [],
     },
   },
   {
     name: "mip_list_pure_service_users",
-    description: "(v1.16+) Yalnız SERVICE-USER rolüne sahip 'pure' service user'ları listeler — yeni UI'daki 'Service Users' bölümü (GET /api/service-users/pure). Eski sürümde bu uç yoksa 404 döner; onun yerine mip_list_service_users kullan.",
+    description: "(v1.16+) Lists 'pure' service users holding only the SERVICE-USER role — the 'Service Users' section in the new UI (GET /api/service-users/pure). Returns 404 on older versions that lack this endpoint; use mip_list_service_users there instead.",
     inputSchema: {
       type: "object",
       properties: {
-        search: { type: "string", description: "Kullanıcı adı/e-posta filtresi (opsiyonel)" },
-        page:   { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size:   { type: "number", description: "Sayfa boyutu (varsayılan 25)" },
+        search: { type: "string", description: "User name/e-mail filter (optional)" },
+        page:   { type: "number", description: "Page (1-based, default 1)" },
+        size:   { type: "number", description: "Page size (default 25)" },
       },
       required: [],
     },
   },
   {
     name: "mip_list_platform_users",
-    description: "(v1.16+) SERVICE-USER dışında rol(ler)i olan (developer/ui-user/monitoring/admin) kullanıcıları listeler — yeni UI'daki 'MDP Integration Platform Users' bölümü (GET /api/service-users/with-other-roles). Eski sürümde bu uç yoksa 404 döner.",
+    description: "(v1.16+) Lists users holding role(s) other than SERVICE-USER (developer/ui-user/monitoring/admin) — the 'MDP Integration Platform Users' section in the new UI (GET /api/service-users/with-other-roles). Returns 404 on older versions that lack this endpoint.",
     inputSchema: {
       type: "object",
       properties: {
-        search: { type: "string", description: "Kullanıcı adı/e-posta filtresi (opsiyonel)" },
-        page:   { type: "number", description: "Sayfa (1'den başlar, varsayılan 1)" },
-        size:   { type: "number", description: "Sayfa boyutu (varsayılan 25)" },
+        search: { type: "string", description: "User name/e-mail filter (optional)" },
+        page:   { type: "number", description: "Page (1-based, default 1)" },
+        size:   { type: "number", description: "Page size (default 25)" },
       },
       required: [],
     },
   },
   {
     name: "mip_create_service_user",
-    description: "Yeni bir MIP service user'ı oluşturur. Roller: developer, ui-user, monitoring, admin, service-user. ÖNEMLİ: Service user MIP platformuna erişmek için kullanılır (UI girişi, API çağrısı, Start node'unu tetiklemek). processHTTP/processSOAP node'larındaki basicAuthResourceName veya oAuth2ResourceName için SERVICE USER KULLANILMAZ — onlar için mip_create_credential kullanılır.",
+    description: "Creates a new MIP service user. Roles: developer, ui-user, monitoring, admin, service-user. IMPORTANT: a service user is for accessing the MIP platform itself (UI login, API calls, triggering a Start node). Do NOT use a SERVICE USER for basicAuthResourceName or oAuth2ResourceName on processHTTP/processSOAP nodes — use mip_create_credential for those.",
     inputSchema: {
       type: "object",
       properties: {
-        username: { type: "string", description: "Kullanıcı adı (benzersiz olmalı)" },
-        email:    { type: "string", description: "E-posta adresi" },
-        password: { type: "string", description: "Şifre" },
+        username: { type: "string", description: "User name (must be unique)" },
+        email:    { type: "string", description: "E-mail address" },
+        password: { type: "string", description: "Password" },
         roles: {
           type: "array",
           items: { type: "string", enum: ["developer", "ui-user", "monitoring", "admin", "service-user"] },
-          description: "Kullanıcı rolleri. En az bir rol gereklidir."
+          description: "User roles. At least one role is required."
         },
       },
       required: ["username", "email", "password", "roles"],
@@ -62,17 +62,17 @@ const tools = [
   },
   {
     name: "mip_update_service_user",
-    description: "Mevcut bir MIP service user'ını günceller.",
+    description: "Updates an existing MIP service user.",
     inputSchema: {
       type: "object",
       properties: {
-        username: { type: "string", description: "Güncellenecek kullanıcı adı" },
-        email:    { type: "string", description: "Yeni e-posta adresi (opsiyonel)" },
-        password: { type: "string", description: "Yeni şifre (opsiyonel)" },
+        username: { type: "string", description: "User name to update" },
+        email:    { type: "string", description: "New e-mail address (optional)" },
+        password: { type: "string", description: "New password (optional)" },
         roles: {
           type: "array",
           items: { type: "string", enum: ["developer", "ui-user", "monitoring", "admin", "service-user"] },
-          description: "Yeni roller (opsiyonel)"
+          description: "New roles (optional)"
         },
       },
       required: ["username"],
@@ -80,23 +80,23 @@ const tools = [
   },
   {
     name: "mip_delete_service_user",
-    description: "Bir MIP service user'ını siler.",
+    description: "Deletes a MIP service user.",
     inputSchema: {
       type: "object",
       properties: {
-        username: { type: "string", description: "Silinecek kullanıcı adı" },
+        username: { type: "string", description: "User name to delete" },
       },
       required: ["username"],
     },
   },
   {
     name: "mip_toggle_service_user_lock",
-    description: "Bir MIP service user'ının hesabını kilitler veya kilidini açar.",
+    description: "Locks or unlocks a MIP service user's account.",
     inputSchema: {
       type: "object",
       properties: {
-        username: { type: "string", description: "Kullanıcı adı" },
-        locked:   { type: "boolean", description: "true = kilitle, false = kilidi aç" },
+        username: { type: "string", description: "User name" },
+        locked:   { type: "boolean", description: "true = lock, false = unlock" },
       },
       required: ["username", "locked"],
     },

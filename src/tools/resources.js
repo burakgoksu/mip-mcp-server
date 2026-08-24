@@ -11,38 +11,38 @@ const tools = [
   // ── Resource (Groovy / XSLT / vb.) ──
   {
     name: "mip_upload_resource",
-    description: "MIP'e Groovy script (.groovy), XSLT (.xsl/.xslt), XSD (.xsd) veya WSDL (.wsdl) resource dosyaları yükler. processScript / processXSLTMapping / processStart (SOAP) node'larında kullanılır. WSDL yüklerken elementFormDefault='qualified' zorunludur — hand-crafted WSDL'ler için mip_upload_wsdl tercih edilmeli (otomatik doğrular ve enjekte eder).",
+    description: "Uploads Groovy script (.groovy), XSLT (.xsl/.xslt), XSD (.xsd) or WSDL (.wsdl) resource files to MIP. Used by processScript / processXSLTMapping / processStart (SOAP) nodes. elementFormDefault='qualified' is mandatory when uploading a WSDL — prefer mip_upload_wsdl for hand-crafted WSDLs (it validates and injects it automatically).",
     inputSchema: {
       type: "object",
       properties: {
-        filePath:     { type: "string", description: "Yüklenecek dosyanın tam yolu (.groovy / .xsl / .xslt / .xsd / .wsdl)" },
-        flowId:       { type: "string", description: "Resource'un bağlanacağı flow ID (örn: F_WEATHER_MCP)" },
-        resourceName: { type: "string", description: "MIP'te görünecek resource adı (örn: weather_process.groovy, EchoService.wsdl)" },
-        resourceType: { type: "string", description: "Resource tipi: 'groovy' | 'xsl' | 'xslt' | 'xsd' | 'wsdl'" },
+        filePath:     { type: "string", description: "Full path of the file to upload (.groovy / .xsl / .xslt / .xsd / .wsdl)" },
+        flowId:       { type: "string", description: "ID of the flow the resource will be attached to (e.g. F_WEATHER_MCP)" },
+        resourceName: { type: "string", description: "Resource name as it will appear in MIP (e.g. weather_process.groovy, EchoService.wsdl)" },
+        resourceType: { type: "string", description: "Resource type: 'groovy' | 'xsl' | 'xslt' | 'xsd' | 'wsdl'" },
       },
       required: ["filePath", "flowId", "resourceName", "resourceType"],
     },
   },
   {
     name: "mip_reupload_resource",
-    description: "MIP'teki mevcut bir Groovy veya XSLT resource dosyasını günceller.",
+    description: "Updates an existing Groovy or XSLT resource file in MIP.",
     inputSchema: {
       type: "object",
       properties: {
-        id:           { type: "number", description: "Güncellenecek resource ID" },
-        filePath:     { type: "string", description: "Yeni dosyanın tam yolu" },
-        resourceName: { type: "string", description: "Yeni resource adı (opsiyonel)" },
+        id:           { type: "number", description: "ID of the resource to update" },
+        filePath:     { type: "string", description: "Full path of the new file" },
+        resourceName: { type: "string", description: "New resource name (optional)" },
       },
       required: ["id", "filePath"],
     },
   },
   {
     name: "mip_list_resources",
-    description: "MIP'teki tüm resource'ları listeler. Groovy / XSLT / XSD / WSDL dosyalarını görmek için kullanılır.",
+    description: "Lists every resource in MIP. Used to view Groovy / XSLT / XSD / WSDL files.",
     inputSchema: {
       type: "object",
       properties: {
-        flowId: { type: "string", description: "Belirli bir flow'a ait resource'ları filtrele (opsiyonel)" },
+        flowId: { type: "string", description: "Filter to the resources belonging to a specific flow (optional)" },
       },
       required: [],
     },
@@ -50,46 +50,46 @@ const tools = [
   // ── WSDL (SOAP Sender icin) ──
   {
     name: "mip_generate_wsdl",
-    description: `MIP-uyumlu bir WSDL dosyasi uretir ve diske kaydeder. Olusturulan WSDL'de elementFormDefault="qualified" otomatik olarak baked-in gelir (MIP'in zorunlu kosulu).
-Tipik kullanim: SOAP Start (Sender) adapter icin yeni bir endpoint kontratı olusturmak. Uretilen dosya MIP_DOWNLOAD_DIR altina kaydedilir; istege bagli olarak ayni cagrida flow'a yuklenebilir (uploadAfter:true).
-Operation tanimlari: her operation icin request/response field listesi verilmelidir. Field type degeri xsd: prefix'siz yazilirsa otomatik xsd: ekleniyor (string, int, long, decimal, boolean, dateTime, date, base64Binary).`,
+    description: `Generates a MIP-compatible WSDL file and saves it to disk. The generated WSDL comes with elementFormDefault="qualified" baked in automatically (a hard requirement of MIP).
+Typical use: creating a new endpoint contract for a SOAP Start (Sender) adapter. The generated file is saved under MIP_DOWNLOAD_DIR; optionally it can be uploaded to the flow in the same call (uploadAfter:true).
+Operation definitions: a request/response field list must be given for each operation. If a field type value is written without the xsd: prefix, xsd: is added automatically (string, int, long, decimal, boolean, dateTime, date, base64Binary).`,
     inputSchema: {
       type: "object",
       properties: {
-        serviceName:     { type: "string", description: "WSDL service adi (orn: EchoService). Binding/PortType/Service isimleri bundan turetilir." },
-        targetNamespace: { type: "string", description: "WSDL targetNamespace (orn: http://mdpgroup.com/mip/echo)" },
-        serviceAddress:  { type: "string", description: "soap:address location degeri (opsiyonel, varsayilan: http://localhost/soap/<serviceName>)" },
+        serviceName:     { type: "string", description: "WSDL service name (e.g. EchoService). Binding/PortType/Service names are derived from it." },
+        targetNamespace: { type: "string", description: "WSDL targetNamespace (e.g. http://mdpgroup.com/mip/echo)" },
+        serviceAddress:  { type: "string", description: "soap:address location value (optional, default: http://localhost/soap/<serviceName>)" },
         operations: {
           type: "array",
-          description: "Operation listesi. Her operation: { name, soapAction?, request:{fields:[{name,type,minOccurs?,maxOccurs?}]}, response:{fields:[...]} }",
+          description: "Operation list. Each operation: { name, soapAction?, request:{fields:[{name,type,minOccurs?,maxOccurs?}]}, response:{fields:[...]} }",
           items: {
             type: "object",
             properties: {
-              name:       { type: "string", description: "Operation adi (orn: Echo, GetOrder)" },
-              soapAction: { type: "string", description: "SOAPAction header (opsiyonel, varsayilan: <targetNamespace>/<name>)" },
-              request:  { type: "object", description: "Request element tanimi: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
-              response: { type: "object", description: "Response element tanimi: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
+              name:       { type: "string", description: "Operation name (e.g. Echo, GetOrder)" },
+              soapAction: { type: "string", description: "SOAPAction header (optional, default: <targetNamespace>/<name>)" },
+              request:  { type: "object", description: "Request element definition: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
+              response: { type: "object", description: "Response element definition: { fields: [{name, type, minOccurs?, maxOccurs?}] }" },
             },
             required: ["name"],
           },
         },
-        resourceName: { type: "string", description: "MIP'te gorunecek dosya adi. Varsayilan: <serviceName>.wsdl" },
-        outputPath:   { type: "string", description: "Kayit edilecek tam dosya yolu (opsiyonel, varsayilan MIP_DOWNLOAD_DIR/<resourceName>)" },
-        uploadAfter:  { type: "boolean", description: "true ise WSDL ureteldikten sonra dogrudan flowId'ye yuklenir (varsayilan: false)" },
-        flowId:       { type: "string", description: "uploadAfter=true ise yukleme yapilacak flow ID" },
+        resourceName: { type: "string", description: "File name as it will appear in MIP. Default: <serviceName>.wsdl" },
+        outputPath:   { type: "string", description: "Full file path to save to (optional, default MIP_DOWNLOAD_DIR/<resourceName>)" },
+        uploadAfter:  { type: "boolean", description: "If true, the WSDL is uploaded straight to flowId after being generated (default: false)" },
+        flowId:       { type: "string", description: "Flow ID to upload to when uploadAfter=true" },
       },
       required: ["serviceName", "targetNamespace", "operations"],
     },
   },
   {
     name: "mip_upload_wsdl",
-    description: `Bir WSDL dosyasini MIP'e SOAP Start (Sender) resource'u olarak yukler. Yukleme oncesinde dosya icindeki tum <xs:schema> / <xsd:schema> elementlerinde elementFormDefault="qualified" oldugunu dogrular; eksikse otomatik enjekte eder, "unqualified" ise "qualified" ile degistirir. Duzeltilmis dosya MIP_DOWNLOAD_DIR altina yazildiktan sonra MIP'e gonderilir. mip_upload_resource'a gore farki: WSDL-ozel dogrulama ve auto-fix yapar.`,
+    description: `Uploads a WSDL file to MIP as a SOAP Start (Sender) resource. Before uploading it verifies that every <xs:schema> / <xsd:schema> element in the file has elementFormDefault="qualified"; it injects the attribute automatically if missing, and replaces "unqualified" with "qualified". The corrected file is written under MIP_DOWNLOAD_DIR and then sent to MIP. The difference from mip_upload_resource: this performs WSDL-specific validation and auto-fixing.`,
     inputSchema: {
       type: "object",
       properties: {
-        filePath:     { type: "string", description: "Yuklenecek WSDL dosyasinin tam yolu" },
-        flowId:       { type: "string", description: "Resource'un baglanacagi flow ID (orn: F_SOAP_INBOUND)" },
-        resourceName: { type: "string", description: "MIP'te gorunecek dosya adi (orn: EchoService.wsdl). Verilmezse dosya adi kullanilir." },
+        filePath:     { type: "string", description: "Full path of the WSDL file to upload" },
+        flowId:       { type: "string", description: "ID of the flow the resource will be attached to (e.g. F_SOAP_INBOUND)" },
+        resourceName: { type: "string", description: "File name as it will appear in MIP (e.g. EchoService.wsdl). The file name is used if omitted." },
       },
       required: ["filePath", "flowId"],
     },

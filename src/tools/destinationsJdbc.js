@@ -13,7 +13,7 @@ const tools = [
       properties: {
         filter: { type: "string", description: "Optional: text occurring in the name/driver/user/url" },
         page: { type: "number", description: "Page (1-based, default 1)" },
-        size: { type: "number", description: "Sayfa başına kayıt (varsayılan 200)" },
+        size: { type: "number", description: "Records per page (default 200)" },
       },
       required: [],
     },

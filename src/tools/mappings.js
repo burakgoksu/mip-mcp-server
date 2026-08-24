@@ -8,14 +8,14 @@ const tools = [
   // ── Flow Mapping ──
   {
     name: "mip_export_flow_mappings",
-    description: "Belirtilen flow mapping ID'lerini export eder.",
+    description: "Exports the given flow mapping IDs.",
     inputSchema: {
       type: "object",
       properties: {
         ids: {
           type: "array",
           items: { type: "number" },
-          description: "Export edilecek flow mapping ID listesi",
+          description: "List of flow mapping IDs to export",
         },
       },
       required: ["ids"],
@@ -23,12 +23,12 @@ const tools = [
   },
   {
     name: "mip_import_flow_mappings",
-    description: "Zip dosyasından flow mapping'leri belirtilen flow'a import eder.",
+    description: "Imports flow mappings from a zip file into the given flow.",
     inputSchema: {
       type: "object",
       properties: {
-        flowId: { type: "string", description: "Hedef flow ID" },
-        filePath: { type: "string", description: "Import edilecek zip dosyasının tam yolu" },
+        flowId: { type: "string", description: "Target flow ID" },
+        filePath: { type: "string", description: "Full path of the zip file to import" },
       },
       required: ["flowId", "filePath"],
     },
@@ -36,33 +36,33 @@ const tools = [
   // ── Flow Mapping Sample ──
   {
     name: "mip_upload_flow_mapping_sample",
-    description: "Yeni bir flow mapping sample dosyası yükler.",
+    description: "Uploads a new flow mapping sample file.",
     inputSchema: {
       type: "object",
       properties: {
-        filePath: { type: "string", description: "Yüklenecek dosyanın tam yolu" },
-        name: { type: "string", description: "Sample adı" },
-        flowMappingId: { type: "number", description: "İlişkilendirilecek flow mapping ID" },
+        filePath: { type: "string", description: "Full path of the file to upload" },
+        name: { type: "string", description: "Sample name" },
+        flowMappingId: { type: "number", description: "Flow mapping ID to associate it with" },
       },
       required: ["filePath", "name", "flowMappingId"],
     },
   },
   {
     name: "mip_reupload_flow_mapping_sample",
-    description: "Mevcut bir flow mapping sample dosyasını günceller.",
+    description: "Updates an existing flow mapping sample file.",
     inputSchema: {
       type: "object",
       properties: {
-        id: { type: "string", description: "Güncellenecek sample ID" },
-        filePath: { type: "string", description: "Yeni dosyanın tam yolu" },
-        name: { type: "string", description: "Yeni sample adı (opsiyonel)" },
+        id: { type: "string", description: "ID of the sample to update" },
+        filePath: { type: "string", description: "Full path of the new file" },
+        name: { type: "string", description: "New sample name (optional)" },
       },
       required: ["id", "filePath"],
     },
   },
   {
     name: "mip_download_flow_mapping_sample",
-    description: "Belirli bir flow mapping sample dosyasını indirir.",
+    description: "Downloads a specific flow mapping sample file.",
     inputSchema: {
       type: "object",
       properties: {

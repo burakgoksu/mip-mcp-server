@@ -16,12 +16,12 @@ const tools = [
   },
   {
     name: "mip_create_credential",
-    description: `MIP'e yeni bir user credential tanımlar. Desteklenen tipler:
-- BASIC: username/password (REST, SFTP, FTP, Mail vb.)
-- OAUTH_2: OAuth2 token tabanlı (grant type: CLIENT_CREDENTIALS | PASSWORD_CREDENTIALS | AUTHORIZATION_CODE)
+    description: `Defines a new user credential in MIP. Supported types:
+- BASIC: username/password (REST, SFTP, FTP, Mail etc.)
+- OAUTH_2: OAuth2 token based (grant type: CLIENT_CREDENTIALS | PASSWORD_CREDENTIALS | AUTHORIZATION_CODE)
 - AZURE: Azure AD client credentials
 - AWS: AWS access key/secret
-- GOOGLE_PUBSUB: Google servis hesabı JSON key
+- GOOGLE_PUBSUB: Google service account JSON key
 
 BASIC:   { credentialName, credentialType:"BASIC", basicAuthUsername, password }
 OAUTH_2 client_credentials: { credentialName, credentialType:"OAUTH_2", oAuth2GrantType:"CLIENT_CREDENTIALS", oAuth2TokenUrl, oAuth2ClientId, oAuth2ClientSecret, oAuth2SendAs:"Body"|"Header" }
