@@ -6,6 +6,7 @@
 // Liste yanıtları { list:[{key,value}] } biçiminde; value gerçek kaydı taşır.
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const API = `${BASE_URL}/api/api-management`;
 const values = (d) => (Array.isArray(d?.list) ? d.list.map((x) => x.value ?? x) : d);
@@ -163,14 +164,14 @@ const tools = [
 
 const handlers = {
   mip_list_api_routes: async (args, headers) => JSON.stringify(values((await axios.get(`${API}/routes`, { headers })).data), null, 2),
-  mip_create_api_route: async (args, headers) => `Route oluşturuldu: ${JSON.stringify((await axios.post(`${API}/routes`, buildRoute(args), { headers })).data)}`,
-  mip_update_api_route: async (args, headers) => `Route güncellendi (${args.id}): ${JSON.stringify((await axios.put(`${API}/routes/${encodeURIComponent(args.id)}`, buildRoute(args), { headers })).data)}`,
-  mip_delete_api_route: async (args, headers) => `Route silindi (${args.id}): ${JSON.stringify((await axios.delete(`${API}/routes/${encodeURIComponent(args.id)}`, { headers })).data)}`,
+  mip_create_api_route: async (args, headers) => msg.created("Route", (await axios.post(`${API}/routes`, buildRoute(args), { headers })).data),
+  mip_update_api_route: async (args, headers) => msg.updatedRef("Route", args.id, (await axios.put(`${API}/routes/${encodeURIComponent(args.id)}`, buildRoute(args), { headers })).data),
+  mip_delete_api_route: async (args, headers) => msg.deletedRef("Route", args.id, (await axios.delete(`${API}/routes/${encodeURIComponent(args.id)}`, { headers })).data),
 
   mip_list_api_consumers: async (args, headers) => JSON.stringify(values((await axios.get(`${API}/consumers`, { headers })).data), null, 2),
-  mip_create_api_consumer: async (args, headers) => `Consumer oluşturuldu: ${JSON.stringify((await axios.post(`${API}/consumers`, buildConsumer(args), { headers })).data)}`,
-  mip_update_api_consumer: async (args, headers) => `Consumer güncellendi (${args.username}): ${JSON.stringify((await axios.put(`${API}/consumers/${encodeURIComponent(args.username)}`, { username: args.username, plugins: args.plugins || {} }, { headers })).data)}`,
-  mip_delete_api_consumer: async (args, headers) => `Consumer silindi (${args.username}): ${JSON.stringify((await axios.delete(`${API}/consumers/${encodeURIComponent(args.username)}`, { headers })).data)}`,
+  mip_create_api_consumer: async (args, headers) => msg.created("Consumer", (await axios.post(`${API}/consumers`, buildConsumer(args), { headers })).data),
+  mip_update_api_consumer: async (args, headers) => msg.updatedRef("Consumer", args.username, (await axios.put(`${API}/consumers/${encodeURIComponent(args.username)}`, { username: args.username, plugins: args.plugins || {} }, { headers })).data),
+  mip_delete_api_consumer: async (args, headers) => msg.deletedRef("Consumer", args.username, (await axios.delete(`${API}/consumers/${encodeURIComponent(args.username)}`, { headers })).data),
 
   mip_search_rejected_requests: async (args, headers) => {
     const p = {

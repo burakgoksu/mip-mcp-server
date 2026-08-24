@@ -1,6 +1,7 @@
 // ─── Config (env variables) ───────────────────────────────────────────────────
 import path from "path";
 import os from "os";
+import { t } from "./i18n/index.js";
 
 // Sondaki slash'i temizle ki `${BASE_URL}/api/...` çift-slash üretmesin
 // (ör. env "http://host/" verilmişse).
@@ -14,7 +15,8 @@ export const HEALTH_BASE = `${BASE_URL}${process.env.MIP_HEALTH_PATH || "/health
 
 if (!BASE_URL || !MIP_USERNAME || !MIP_PASSWORD) {
   process.stderr.write(
-    "Hata: MIP_BASE_URL, MIP_USERNAME ve MIP_PASSWORD env değişkenleri settings.json içinde tanımlanmalıdır.\n"
+    t("startup.missingEnv", null,
+      "Error: the MIP_BASE_URL, MIP_USERNAME and MIP_PASSWORD environment variables must be defined in settings.json.\n")
   );
   process.exit(1);
 }

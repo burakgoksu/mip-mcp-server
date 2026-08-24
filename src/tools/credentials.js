@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Credentials ──
@@ -104,18 +105,18 @@ const handlers = {
     mip_create_credential: async (args, headers) => {
       const body = { oAuth2CheckAddBasicAuth: false, ...args };
       const res = await axios.post(`${BASE_URL}/api/user-credentials`, body, { headers });
-      return `Credential oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Credential", res.data);
     },
 
     mip_update_credential: async (args, headers) => {
       const { credentialName, ...updates } = args;
       const res = await axios.put(`${BASE_URL}/api/user-credentials/${credentialName}`, updates, { headers });
-      return `Credential güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Credential", res.data);
     },
 
     mip_delete_credential: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/user-credentials/${args.credentialName}`, { headers });
-      return `Credential silindi: ${JSON.stringify(res.data)}`;
+      return msg.deleted("Credential", res.data);
     },
 };
 

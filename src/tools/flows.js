@@ -7,6 +7,7 @@ import { DOWNLOAD_DIR } from "../config.js";
 import { saveFile, extractFilename } from "../util.js";
 import { MIP_FLOW_SCHEMA, validateFlow } from "../kb/flowSchema.js";
 import { buildFlowMapping, inferType, inferDataFormat, normalizeNodeIds, normalizeNodeLabels } from "../graphicalMapping.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Integration Flow ──
@@ -190,14 +191,14 @@ const handlers = {
 
     mip_import_packages_and_flows: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("filename", fs.createReadStream(args.filePath));
       const res = await axios.post(`${BASE_URL}/api/packages/flows/import`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Import tamamlandı: ${JSON.stringify(res.data)}`;
+      return t("flows.importDone", { detail: JSON.stringify(res.data) }, "Import completed: {detail}");
     },
     // ── Deploy / Undeploy / Log Level ────────────────────────────────────────
     mip_deploy_flow: async (args, headers) => {
@@ -225,21 +226,24 @@ const handlers = {
 
     mip_set_flow_log_level: async (args, headers) => {
       if (![1, 2].includes(args.logLevel)) {
-        throw new Error("logLevel 1 (Only I/O Payload) veya 2 (All Steps) olmalıdır.");
+        throw err.at("flows.logLevelInvalid", null, "logLevel must be 1 (Only I/O Payload) or 2 (All Steps).");
       }
       const res = await axios.put(
         `${BASE_URL}/api/flows/${args.flowId}/update-log-level?logLevel=${args.logLevel}`,
         null,
         { headers }
       );
-      return `Log seviyesi güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Log level", res.data);
     },
     // ── Flow Schema & Builder ────────────────────────────────────────────────
     mip_get_flow_schema: async (args, headers) => {
       const section = args.section ?? "all";
       if (section === "all") return JSON.stringify(MIP_FLOW_SCHEMA, null, 2);
       if (MIP_FLOW_SCHEMA[section]) return JSON.stringify(MIP_FLOW_SCHEMA[section], null, 2);
-      return JSON.stringify({ error: `Bilinmeyen bölüm: ${section}. Geçerli değerler: ${Object.keys(MIP_FLOW_SCHEMA).join(", ")}` });
+      return JSON.stringify({
+        error: t("flows.unknownSection", { section, valid: Object.keys(MIP_FLOW_SCHEMA).join(", ") },
+          "Unknown section: {section}. Valid values: {valid}"),
+      });
     },
 
     mip_create_and_import_flow: async (args, headers) => {
@@ -268,11 +272,10 @@ const handlers = {
         const provided = new Set(flowMappingsIn.map(m => m.name));
         const missing = [...new Set(gmNames)].filter(nm => nm && !provided.has(nm));
         if (missing.length) {
-          throw new Error(
-            "Graphical mapping HATASI — import edilmedi: su processGraphicalMapping mappingName'leri icin flowMappings tanimi verilmedi: " +
-            missing.join(", ") + ". Her biri icin flowMappings'e { name, sourceSchema, targetSchema, links } ekle ve schema dosyalarini resources ile gonder. " +
-            "(Kasitli atlamak icin skipValidation:true.)"
-          );
+          throw err.at("flows.graphicalMappingMissing", { missing: missing.join(", ") },
+            "Graphical mapping ERROR — not imported: no flowMappings definition was given for these processGraphicalMapping mappingNames: {missing}. " +
+            "Add { name, sourceSchema, targetSchema, links } to flowMappings for each one and send the schema files via resources. " +
+            "(Pass skipValidation:true to skip this deliberately.)");
         }
       }
 
@@ -281,16 +284,19 @@ const handlers = {
       if (args.skipValidation !== true) {
         const { errors, warnings } = validateFlow(flowDef.flowData);
         if (errors.length > 0) {
-          throw new Error(
-            "Flow dogrulama HATASI — import edilmedi (deploy'da patlamamasi icin). " +
-            "Duzelt ve tekrar dene, ya da mip_get_flow_schema('flowTemplates') ile dogru yapiyi gor.\n" +
-            errors.map(e => "  ✗ " + e).join("\n") +
-            (warnings.length ? "\n\nUyarilar:\n" + warnings.map(w => "  ! " + w).join("\n") : "") +
-            "\n\n(Kasitli olarak atlamak icin skipValidation:true ver.)"
-          );
+          throw err.at("flows.validationFailed", {
+            errors: errors.map(e => "  ✗ " + e).join("\n"),
+            warnings: warnings.length
+              ? t("flows.validationWarningsHeader", null, "\n\nWarnings:\n") + warnings.map(w => "  ! " + w).join("\n")
+              : "",
+          },
+            "Flow validation ERROR — not imported (so it does not blow up at deploy time). " +
+            "Fix it and try again, or call mip_get_flow_schema('flowTemplates') to see the correct structure.\n" +
+            "{errors}{warnings}\n\n(Pass skipValidation:true to skip this deliberately.)");
         }
         if (warnings.length > 0) {
-          console.error("[mip_create_and_import_flow] Dogrulama uyarilari:\n" + warnings.map(w => "  ! " + w).join("\n"));
+          console.error(t("flows.validationWarningsLog", { warnings: warnings.map(w => "  ! " + w).join("\n") },
+            "[mip_create_and_import_flow] Validation warnings:\n{warnings}"));
         }
       }
 
@@ -321,7 +327,7 @@ const handlers = {
       // (graphical mapping'in kaynak/hedef sema'lari da buradan gelir).
       const resourceObjs = [];
       for (const r of (Array.isArray(args.resources) ? args.resources : [])) {
-        if (!r || !r.filePath) throw new Error("resources[].filePath zorunlu.");
+        if (!r || !r.filePath) throw err.at("flows.resourceFilePathRequired", null, "resources[].filePath is required.");
         if (!fs.existsSync(r.filePath)) throw new Error(`resource dosyasi bulunamadi: ${r.filePath}`);
         const resourceType = r.resourceType || inferType(r.name || r.filePath);
         resourceObjs.push({
@@ -360,17 +366,22 @@ const handlers = {
           const fm = buildFlowMapping({ ...m, flowId: flowDef.flowId });
           const sid = ridByName[fm.sourceSchemaResource.name];
           const tid = ridByName[fm.targetSchemaResource.name];
-          if (sid == null) throw new Error(`flowMapping '${fm.name}': kaynak schema resource '${fm.sourceSchemaResource.name}' import edilen resource'lar arasinda yok. 'resources' ile gonderdiginden emin ol.`);
-          if (tid == null) throw new Error(`flowMapping '${fm.name}': hedef schema resource '${fm.targetSchemaResource.name}' bulunamadi.`);
+          if (sid == null)
+            throw err.at("flows.sourceSchemaNotImported", { name: fm.name, resource: fm.sourceSchemaResource.name },
+              "flowMapping '{name}': source schema resource '{resource}' is not among the imported resources. Make sure you send it via 'resources'.");
+          if (tid == null)
+            throw err.at("flows.targetSchemaNotFound", { name: fm.name, resource: fm.targetSchemaResource.name },
+              "flowMapping '{name}': target schema resource '{resource}' not found.");
           fm.sourceSchemaResourceId = sid;
           fm.targetSchemaResourceId = tid;
           await axios.post(`${BASE_URL}/api/flow-mappings`, fm, { headers });
           created.push(`${fm.name} (src#${sid} -> tgt#${tid})`);
         }
-        mappingMsg = `\nGraphical mapping(ler) olusturuldu: ${created.join(", ")}`;
+        mappingMsg = t("flows.mappingsCreated", { names: created.join(", ") }, "\nGraphical mapping(s) created: {names}");
       }
 
-      return `Flow '${flowDef.flowId}' başarıyla oluşturuldu ve MIP'e import edildi.${mappingMsg}\nSonuç: ${JSON.stringify(res.data)}`;
+      return t("flows.importSuccess", { flowId: flowDef.flowId, mappingMsg, detail: JSON.stringify(res.data) },
+        "Flow '{flowId}' was created and imported into MIP successfully.{mappingMsg}\nResult: {detail}");
     },
 };
 

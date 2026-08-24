@@ -6,6 +6,7 @@
 // bağlar). Uçlar: /api/api-management/sync/*.
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const SYNC = `${BASE_URL}/api/api-management/sync`;
 const ONCONFLICT = { type: "string", enum: ["ERROR", "SKIP"], description: "If a gateway consumer/credential of the same name exists: ERROR=fail (default), SKIP=skip" };
@@ -98,7 +99,7 @@ const handlers = {
   mip_unsync_service_user_from_gateway: async (args, headers) => {
     const q = args.strategy ? `?strategy=${encodeURIComponent(args.strategy)}` : "";
     const res = await axios.delete(`${SYNC}/service-users/${args.serviceUserId}${q}`, { headers });
-    return `Service user sync kaldırıldı (id ${args.serviceUserId}): ${JSON.stringify(res.data)}`;
+    return msg.unsyncedRef("Service user", `id ${args.serviceUserId}`, res.data);
   },
 
   mip_list_service_user_basic_auth_credentials: async (args, headers) =>
@@ -113,7 +114,7 @@ const handlers = {
   },
 
   mip_unsync_basic_auth_credential_from_gateway: async (args, headers) =>
-    `Basic-auth credential sync kaldırıldı (id ${args.credentialId}): ${JSON.stringify((await axios.delete(`${SYNC}/basic-authentication-credentials/${args.credentialId}`, { headers })).data)}`,
+    msg.unsyncedRef("Basic-auth credential", `id ${args.credentialId}`, (await axios.delete(`${SYNC}/basic-authentication-credentials/${args.credentialId}`, { headers })).data),
 
   mip_list_service_user_jwt_credentials: async (args, headers) =>
     JSON.stringify((await axios.get(`${BASE_URL}/api/service-users/${args.serviceUserId}/jwt-authentication-credentials`, { headers })).data, null, 2),
@@ -127,7 +128,7 @@ const handlers = {
   },
 
   mip_unsync_jwt_credential_from_gateway: async (args, headers) =>
-    `JWT credential sync kaldırıldı (id ${args.credentialId}): ${JSON.stringify((await axios.delete(`${SYNC}/jwt-authentication-credentials/${args.credentialId}`, { headers })).data)}`,
+    msg.unsyncedRef("JWT credential", `id ${args.credentialId}`, (await axios.delete(`${SYNC}/jwt-authentication-credentials/${args.credentialId}`, { headers })).data),
 };
 
 export default { tools, handlers };

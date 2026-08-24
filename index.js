@@ -13,6 +13,7 @@ import { fileURLToPath } from "url";
 
 import { getToken, authHeaders } from "./src/auth.js";
 import { tools as TOOLS, handlers as HANDLERS } from "./src/registry.js";
+import { t } from "./src/i18n/index.js";
 
 // ─── Dispatch ─────────────────────────────────────────────────────────────────
 // Her istekte token tazele + auth header üret; tool'u registry'den bul ve çağır.
@@ -22,7 +23,7 @@ async function handleTool(name, args) {
   await getToken();
   const headers = authHeaders();
   const handler = HANDLERS[name];
-  if (!handler) throw new Error(`Bilinmeyen tool: ${name}`);
+  if (!handler) throw new Error(t("server.unknownTool", { name }, "Unknown tool: {name}"));
   return handler(args, headers);
 }
 
@@ -44,7 +45,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}`
       : err.message;
     return {
-      content: [{ type: "text", text: `Hata: ${message}` }],
+      content: [{ type: "text", text: t("server.errorPrefix", { message }, "Error: {message}") }],
       isError: true,
     };
   }

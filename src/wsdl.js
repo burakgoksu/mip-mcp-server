@@ -2,6 +2,7 @@
 // MIP, SOAP Start adapter icin yuklenen WSDL'lerde her <xs:schema> elementinde
 // elementFormDefault="qualified" olmasini zorunlu kilar. Bu deger eksikse veya
 // "unqualified" ise SOAP Sender flow'lari beklendigi gibi calismaz.
+import { err } from "./i18n/index.js";
 export function ensureElementFormDefaultQualified(wsdlContent) {
   const warnings = [];
   const schemaTagRegex = /<([\w-]+:)?schema\b([^>]*?)(\/?)>/g;
@@ -47,17 +48,17 @@ function generateXsdElement(elementName, fields) {
 }
 
 export function generateWsdl({ serviceName, targetNamespace, serviceAddress, operations }) {
-  if (!serviceName) throw new Error("generateWsdl: serviceName zorunlu.");
-  if (!targetNamespace) throw new Error("generateWsdl: targetNamespace zorunlu.");
+  if (!serviceName) throw err.at("wsdl.serviceNameRequired", null, "generateWsdl: serviceName is required.");
+  if (!targetNamespace) throw err.at("wsdl.targetNamespaceRequired", null, "generateWsdl: targetNamespace is required.");
   if (!Array.isArray(operations) || operations.length === 0) {
-    throw new Error("generateWsdl: en az bir operation tanımlanmalı.");
+    throw err.at("wsdl.operationRequired", null, "generateWsdl: at least one operation must be defined.");
   }
   const tns = targetNamespace;
   const addr = serviceAddress || `http://localhost/soap/${serviceName}`;
 
   const schemaElements = [];
   for (const op of operations) {
-    if (!op.name) throw new Error("generateWsdl: her operation icin name zorunlu.");
+    if (!op.name) throw err.at("wsdl.operationNameRequired", null, "generateWsdl: name is required for every operation.");
     schemaElements.push(generateXsdElement(`${op.name}Request`, op.request?.fields ?? []));
     schemaElements.push(generateXsdElement(`${op.name}Response`, op.response?.fields ?? []));
   }

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Alerts (Integrations > Alerts) ───────────────────────────────────────────
@@ -174,7 +175,7 @@ const handlers = {
         throw new Error("useTemplate=true iken alertTemplate ve alertBodyType zorunludur.");
       }
       const res = await axios.post(`${BASE_URL}/api/alerts`, body, { headers });
-      return `Alert oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Alert", res.data);
     },
 
     mip_update_alert: async (args, headers) => {
@@ -185,7 +186,7 @@ const handlers = {
         params: { paginationPage: 0, paginationSize: 500 },
       });
       const existing = (cur.data?.content ?? []).find((a) => String(a.alertId) === String(id));
-      if (!existing) throw new Error(`Alert bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("Alert", id);
       const useTemplate = args.useTemplate ?? existing.isTemplateEnabled ?? false;
       const existingFlowIds = (existing.integrationFlows ?? []).map((f) => f.flowId);
       // MIP alertTemplate literal satır sonu kabul etmez; newline'ları boşluğa çevir.
@@ -200,17 +201,17 @@ const handlers = {
         alertBodyType: useTemplate ? (args.alertBodyType ?? existing.alertBodyType ?? "") : "",
       };
       const res = await axios.put(`${BASE_URL}/api/alerts/${id}`, body, { headers });
-      return `Alert güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Alert", res.data);
     },
 
     mip_delete_alert: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/alerts/${args.id}`, { headers });
-      return `Alert silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("Alert", `id ${args.id}`, res.data);
     },
 
     mip_get_alert_mail_config: async (args, headers) => {
       const res = await axios.get(`${BASE_URL}/api/alerts/mail-config`, { headers });
-      return res.data ? JSON.stringify(res.data, null, 2) : "SMTP ayarı tanımlı değil.";
+      return res.data ? JSON.stringify(res.data, null, 2) : t("alerts.smtpNotConfigured", null, "No SMTP settings configured.");
     },
 
     mip_save_alert_mail_config: async (args, headers) => {
@@ -226,15 +227,15 @@ const handlers = {
         encryption: args.encryption ?? "STARTTLS",
       };
       if (body.authentication !== "NONE" && !body.credentialId) {
-        throw new Error("authentication NONE değilse credentialId zorunludur.");
+        throw err.at("alerts.credentialRequired", null, "credentialId is required unless authentication is NONE.");
       }
       const res = await axios.post(`${BASE_URL}/api/alerts/mail-config`, body, { headers });
-      return `SMTP ayarı kaydedildi: ${JSON.stringify(res.data)}`;
+      return msg.saved("SMTP settings", res.data);
     },
 
     mip_delete_alert_mail_config: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/alerts/mail-config`, { headers });
-      return `SMTP ayarı silindi: ${JSON.stringify(res.data)}`;
+      return msg.deleted("SMTP settings", res.data);
     },
 };
 

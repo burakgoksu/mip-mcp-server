@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── MCP Servers (Operations > Destinations > MCP Servers) ─────────────────────
@@ -124,7 +125,7 @@ const handlers = {
     mip_create_mcp_server: async (args, headers) => {
       const authType = args.authType ?? "NONE";
       if (authType !== "NONE" && !args.credentialId) {
-        throw new Error("authType NONE değilse credentialId zorunludur.");
+        throw err.at("mcp.credentialRequired", null, "credentialId is required unless authType is NONE.");
       }
       const useCredentialAuth = authType !== "NONE";
       const body = {
@@ -138,7 +139,7 @@ const handlers = {
         defaultTool: args.defaultTool ?? null,
       };
       const res = await axios.post(`${BASE_URL}/api/mcp-servers`, body, { headers });
-      return `MCP server oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("MCP server", res.data);
     },
 
     mip_update_mcp_server: async (args, headers) => {
@@ -149,7 +150,7 @@ const handlers = {
       });
       const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
       const existing = items.find((s) => s.id === id);
-      if (!existing) throw new Error(`MCP server bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("MCP server", id);
       const authType = args.authType ?? existing.authType ?? "NONE";
       const useCredentialAuth = authType !== "NONE";
       const body = {
@@ -164,12 +165,12 @@ const handlers = {
         defaultTool: args.defaultTool ?? existing.defaultTool ?? null,
       };
       const res = await axios.put(`${BASE_URL}/api/mcp-servers/${id}`, body, { headers });
-      return `MCP server güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("MCP server", res.data);
     },
 
     mip_delete_mcp_server: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/mcp-servers/${args.id}`, { headers });
-      return `MCP server silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("MCP server", `id ${args.id}`, res.data);
     },
 
     mip_sync_mcp_server: async (args, headers) => {
@@ -183,7 +184,7 @@ const handlers = {
       const s = items.find((x) => x.id === args.id);
       if (!s) return `Sync tetiklendi (id ${args.id}).`;
       return `MCP server sync edildi: connectionStatus=${s.connectionStatus}, toolsCount=${s.toolsCount}${
-        s.connectionStatus === "FAILED" ? " — bağlantı başarısız (config/erişim kontrol edin)." : ""
+        s.connectionStatus === "FAILED" ? t("mcp.connectionFailed", null, " — connection failed (check the config/access).") : ""
       }`;
     },
 

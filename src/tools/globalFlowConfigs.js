@@ -1,6 +1,7 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
 import { parseConfigValue } from "../util.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Global Flow Configurations (Operations > Global-Flow-Configurations) ──────
@@ -95,7 +96,7 @@ const handlers = {
         appliedGlobally: args.appliedGlobally ?? false,
       };
       const res = await axios.post(`${BASE_URL}/api/global-flow-configurations`, body, { headers });
-      return `Global flow config oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Global flow config", res.data);
     },
 
     mip_update_global_flow_config: async (args, headers) => {
@@ -105,7 +106,7 @@ const handlers = {
         params: { paginationPage: 0, paginationSize: 500 },
       });
       const existing = (cur.data?.content ?? []).find((c) => c.configKey === configKey);
-      if (!existing) throw new Error(`Global flow config bulunamadı: ${configKey}`);
+      if (!existing) throw err.notFound("Global flow config", configKey);
       const data = {
         configValue:
           args.configValue !== undefined ? parseConfigValue(args.configValue) : existing.configValue,
@@ -116,7 +117,7 @@ const handlers = {
         args.force ? "?force=true" : ""
       }`;
       const res = await axios.put(url, data, { headers });
-      return `Global flow config güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Global flow config", res.data);
     },
 
     mip_delete_global_flow_config: async (args, headers) => {
@@ -124,7 +125,7 @@ const handlers = {
         `${BASE_URL}/api/global-flow-configurations/${encodeURIComponent(args.configKey)}`,
         { headers }
       );
-      return `Global flow config silindi (${args.configKey}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("Global flow config", args.configKey, res.data);
     },
 };
 

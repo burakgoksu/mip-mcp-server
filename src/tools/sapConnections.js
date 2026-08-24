@@ -5,6 +5,7 @@
 //   XI Proxy    → PO Connections /api/po-connections, Systems /api/xi-systems
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const SCHEME = { type: "string", enum: ["http", "https"], description: "http or https" };
 // Verilen anahtarlardan (undefined olmayan) body kur.
@@ -58,15 +59,15 @@ const handlers = {
     if (args.filter) params.filter = args.filter;
     return JSON.stringify((await axios.get(`${BASE_URL}/api/soa-connections`, { headers, params })).data, null, 2);
   },
-  mip_create_soa_connection: async (args, headers) => `SOA bağlantısı oluşturuldu: ${JSON.stringify((await axios.post(`${BASE_URL}/api/soa-connections`, pick(args, SOA_FIELDS), { headers })).data)}`,
+  mip_create_soa_connection: async (args, headers) => msg.created("SOA connection", (await axios.post(`${BASE_URL}/api/soa-connections`, pick(args, SOA_FIELDS), { headers })).data),
   mip_update_soa_connection: async (args, headers) => {
     const cur = (await soa.getItems(headers)).find((x) => x.id === args.id);
-    if (!cur) throw new Error(`SOA bağlantısı bulunamadı: id ${args.id}`);
+    if (!cur) throw err.notFound("SOA connection", args.id);
     const body = { ...pick(cur, SOA_FIELDS), ...pick(args, SOA_FIELDS) };
-    return `SOA bağlantısı güncellendi: ${JSON.stringify((await axios.put(`${BASE_URL}/api/soa-connections/${args.id}`, body, { headers })).data)}`;
+    return msg.updated("SOA connection", (await axios.put(`${BASE_URL}/api/soa-connections/${args.id}`, body, { headers })).data);
   },
-  mip_delete_soa_connection: async (args, headers) => `SOA bağlantısı silindi (id ${args.id}): ${JSON.stringify((await axios.delete(`${BASE_URL}/api/soa-connections/${args.id}`, { headers })).data)}`,
-  mip_set_soa_connection_enabled: async (args, headers) => `SOA bağlantısı ${args.isEnabled ? "etkin" : "pasif"}: ${JSON.stringify((await axios.put(`${BASE_URL}/api/soa-connections/${args.id}/set-enabled?isEnabled=${args.isEnabled}`, null, { headers })).data)}`,
+  mip_delete_soa_connection: async (args, headers) => msg.deletedRef("SOA connection", `id ${args.id}`, (await axios.delete(`${BASE_URL}/api/soa-connections/${args.id}`, { headers })).data),
+  mip_set_soa_connection_enabled: async (args, headers) => t(args.isEnabled ? "sap.connectionEnabled" : "sap.connectionDisabled", { entity: "SOA connection", detail: JSON.stringify((await axios.put(`${BASE_URL}/api/soa-connections/${args.id}/set-enabled?isEnabled=${args.isEnabled}`, null, { headers })).data) }, args.isEnabled ? "{entity} enabled: {detail}" : "{entity} disabled: {detail}"),
 
   // PO
   mip_list_po_connections: async (args, headers) => {
@@ -74,26 +75,26 @@ const handlers = {
     if (args.filter) params.filter = args.filter;
     return JSON.stringify((await axios.get(`${BASE_URL}/api/po-connections`, { headers, params })).data, null, 2);
   },
-  mip_create_po_connection: async (args, headers) => `PO bağlantısı oluşturuldu: ${JSON.stringify((await axios.post(`${BASE_URL}/api/po-connections`, pick(args, PO_FIELDS), { headers })).data)}`,
+  mip_create_po_connection: async (args, headers) => msg.created("PO connection", (await axios.post(`${BASE_URL}/api/po-connections`, pick(args, PO_FIELDS), { headers })).data),
   mip_update_po_connection: async (args, headers) => {
     const cur = (await po.getItems(headers)).find((x) => x.id === args.id);
-    if (!cur) throw new Error(`PO bağlantısı bulunamadı: id ${args.id}`);
+    if (!cur) throw err.notFound("PO connection", args.id);
     const body = { ...pick(cur, PO_FIELDS), ...pick(args, PO_FIELDS) };
-    return `PO bağlantısı güncellendi: ${JSON.stringify((await axios.put(`${BASE_URL}/api/po-connections/${args.id}`, body, { headers })).data)}`;
+    return msg.updated("PO connection", (await axios.put(`${BASE_URL}/api/po-connections/${args.id}`, body, { headers })).data);
   },
-  mip_delete_po_connection: async (args, headers) => `PO bağlantısı silindi (id ${args.id}): ${JSON.stringify((await axios.delete(`${BASE_URL}/api/po-connections/${args.id}`, { headers })).data)}`,
-  mip_set_po_connection_enabled: async (args, headers) => `PO bağlantısı ${args.isEnabled ? "etkin" : "pasif"}: ${JSON.stringify((await axios.put(`${BASE_URL}/api/po-connections/${args.id}/set-enabled?isEnabled=${args.isEnabled}`, null, { headers })).data)}`,
+  mip_delete_po_connection: async (args, headers) => msg.deletedRef("PO connection", `id ${args.id}`, (await axios.delete(`${BASE_URL}/api/po-connections/${args.id}`, { headers })).data),
+  mip_set_po_connection_enabled: async (args, headers) => t(args.isEnabled ? "sap.connectionEnabled" : "sap.connectionDisabled", { entity: "PO connection", detail: JSON.stringify((await axios.put(`${BASE_URL}/api/po-connections/${args.id}/set-enabled?isEnabled=${args.isEnabled}`, null, { headers })).data) }, args.isEnabled ? "{entity} enabled: {detail}" : "{entity} disabled: {detail}"),
 
   // XI Systems
   mip_list_xi_systems: async (args, headers) => JSON.stringify((await axios.get(`${BASE_URL}/api/xi-systems`, { headers })).data, null, 2),
-  mip_create_xi_system: async (args, headers) => `XI System oluşturuldu: ${JSON.stringify((await axios.post(`${BASE_URL}/api/xi-systems`, pick(args, XI_FIELDS), { headers })).data)}`,
+  mip_create_xi_system: async (args, headers) => msg.created("XI System", (await axios.post(`${BASE_URL}/api/xi-systems`, pick(args, XI_FIELDS), { headers })).data),
   mip_update_xi_system: async (args, headers) => {
     const cur = (await xi.getItems(headers)).find((x) => x.id === args.id);
-    if (!cur) throw new Error(`XI System bulunamadı: id ${args.id}`);
+    if (!cur) throw err.notFound("XI System", args.id);
     const body = { ...pick(cur, XI_FIELDS), ...pick(args, XI_FIELDS) };
-    return `XI System güncellendi: ${JSON.stringify((await axios.put(`${BASE_URL}/api/xi-systems/${args.id}`, body, { headers })).data)}`;
+    return msg.updated("XI System", (await axios.put(`${BASE_URL}/api/xi-systems/${args.id}`, body, { headers })).data);
   },
-  mip_delete_xi_system: async (args, headers) => `XI System silindi (id ${args.id}): ${JSON.stringify((await axios.delete(`${BASE_URL}/api/xi-systems/${args.id}`, { headers })).data)}`,
+  mip_delete_xi_system: async (args, headers) => msg.deletedRef("XI System", `id ${args.id}`, (await axios.delete(`${BASE_URL}/api/xi-systems/${args.id}`, { headers })).data),
   mip_test_xi_system: async (args, headers) => JSON.stringify((await axios.post(`${BASE_URL}/api/xi-systems/${args.id}/test-connection`, null, { headers })).data, null, 2),
 };
 

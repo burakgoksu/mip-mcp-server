@@ -2,6 +2,7 @@
 // v1.16.0-rc.5+ ile gelen özellik. Endpoint: /api/queues/kafka/topics.
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   {
@@ -74,7 +75,7 @@ const handlers = {
   mip_update_kafka_topic: async (args, headers) => {
     const body = { bootstrapServers: args.bootstrapServers, topic: args.topic, changes: args.changes };
     const res = await axios.put(`${BASE_URL}/api/queues/kafka/topics`, body, { headers });
-    return `Kafka topic güncellendi (${args.topic}): ${JSON.stringify(res.data)}`;
+    return msg.updatedRef("Kafka topic", args.topic, res.data);
   },
 };
 

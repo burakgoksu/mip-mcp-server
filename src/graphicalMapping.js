@@ -4,6 +4,7 @@
 // flow-mapping nesnesinde durur: kaynak/hedef sema referansi + data grafi.
 // Gercek export formatina birebir (bkz. F_GRAPHICAL_MAPPING* ornekleri).
 
+import { err } from "./i18n/index.js";
 const leaf = (p) => String(p).split("/").pop();
 
 // links -> { mappings:[...], transformations:[...] } (gorsel graf).
@@ -58,8 +59,10 @@ export function buildFunctions(fnSpecs = []) {
   for (const fn of fnSpecs) {
     if (!fn || !fn.type) continue;
     const type = String(fn.type).toUpperCase();
-    if (!MAPPING_FUNCTION_TYPES.includes(type)) throw new Error(`Bilinmeyen mapping fonksiyonu: '${type}'. Gecerli: ${MAPPING_FUNCTION_TYPES.join(", ")}`);
-    if (!fn.target) throw new Error(`Mapping fonksiyonu '${type}': target (hedef alan yolu) zorunlu.`);
+    if (!MAPPING_FUNCTION_TYPES.includes(type)) throw err.at("mapping.unknownFunction", { type, valid: MAPPING_FUNCTION_TYPES.join(", ") },
+        "Unknown mapping function: '{type}'. Valid: {valid}");
+    if (!fn.target) throw err.at("mapping.functionTargetRequired", { type },
+        "Mapping function '{type}': target (the target field path) is required.");
     const outHandle = `${fn.target}-target`;
     if (type === "CONSTANT") {
       functions.push({ id: nid(type), type, inputs: [], params: { value: String(fn.value ?? (fn.params && fn.params.value) ?? "") }, outputs: [outHandle], position: { x: 400, y: 100 } });
@@ -81,9 +84,10 @@ export function buildFunctions(fnSpecs = []) {
 // data verilirse (ham) links/functions yok sayilir. flowId flow ile ayni olmali.
 // Audit/id alanlari EKLENMEZ — server atar; schema resource'lari isim+flowId ile cozulur.
 export function buildFlowMapping({ name, flowId, sourceSchema, targetSchema, links, functions, data }) {
-  if (!name) throw new Error("flowMapping.name zorunlu (processGraphicalMapping.mappingName ile ayni olmali).");
-  if (!sourceSchema || !sourceSchema.name) throw new Error(`flowMapping '${name}': sourceSchema.name zorunlu.`);
-  if (!targetSchema || !targetSchema.name) throw new Error(`flowMapping '${name}': targetSchema.name zorunlu.`);
+  if (!name) throw err.at("mapping.nameRequired", null,
+    "flowMapping.name is required (it must match processGraphicalMapping.mappingName).");
+  if (!sourceSchema || !sourceSchema.name) throw err.at("mapping.sourceSchemaNameRequired", { name }, "flowMapping '{name}': sourceSchema.name is required.");
+  if (!targetSchema || !targetSchema.name) throw err.at("mapping.targetSchemaNameRequired", { name }, "flowMapping '{name}': targetSchema.name is required.");
   let mappingData = data;
   if (!mappingData) {
     mappingData = buildMappingData(links || []);

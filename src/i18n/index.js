@@ -76,6 +76,14 @@ export const msg = {
   deleted: (e, d) => t("msg.deleted", { entity: ent(e), detail: j(d) }, "{entity} deleted: {detail}"),
   deletedRef: (e, ref, d) =>
     t("msg.deletedRef", { entity: ent(e), ref, detail: j(d) }, "{entity} deleted ({ref}): {detail}"),
+  updatedRef: (e, ref, d) =>
+    t("msg.updatedRef", { entity: ent(e), ref, detail: j(d) }, "{entity} updated ({ref}): {detail}"),
+  addedRef: (e, ref, d) =>
+    t("msg.addedRef", { entity: ent(e), ref, detail: j(d) }, "{entity} added ({ref}): {detail}"),
+  uploadedRef: (e, ref, d) =>
+    t("msg.uploadedRef", { entity: ent(e), ref, detail: j(d) }, "{entity} uploaded ({ref}): {detail}"),
+  unsyncedRef: (e, ref, d) =>
+    t("msg.unsyncedRef", { entity: ent(e), ref, detail: j(d) }, "{entity} sync removed ({ref}): {detail}"),
   uploaded: (e, d) => t("msg.uploaded", { entity: ent(e), detail: j(d) }, "{entity} uploaded: {detail}"),
   saved: (e, d) => t("msg.saved", { entity: ent(e), detail: j(d) }, "{entity} saved: {detail}"),
   added: (e, d) => t("msg.added", { entity: ent(e), detail: j(d) }, "{entity} added: {detail}"),

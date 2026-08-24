@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── RFC Destinations (Operations > Destinations > RFC) ────────────────────────
@@ -106,7 +107,7 @@ const handlers = {
         sapRouter: args.sapRouter ?? "",
       };
       const res = await axios.post(`${BASE_URL}/api/rfc-destinations`, body, { headers });
-      return `RFC destination oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("RFC destination", res.data);
     },
 
     mip_update_rfc_destination: async (args, headers) => {
@@ -117,7 +118,7 @@ const handlers = {
       });
       const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
       const existing = items.find((d) => d.id === id);
-      if (!existing) throw new Error(`RFC destination bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("RFC destination", id);
       const body = {
         destinationName: args.destinationName ?? existing.destinationName,
         ashost: args.ashost ?? existing.ashost,
@@ -132,12 +133,12 @@ const handlers = {
       // password liste yanıtında yok; yalnızca verilirse gönder (verilmezse MIP mevcut parolayı korur).
       if (args.password !== undefined) body.password = args.password;
       const res = await axios.put(`${BASE_URL}/api/rfc-destinations/${id}`, body, { headers });
-      return `RFC destination güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("RFC destination", res.data);
     },
 
     mip_delete_rfc_destination: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/rfc-destinations/${args.id}`, { headers });
-      return `RFC destination silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("RFC destination", `id ${args.id}`, res.data);
     },
 };
 

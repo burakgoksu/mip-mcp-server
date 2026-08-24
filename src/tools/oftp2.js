@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── OFTP2 Connections (Operations > Destinations > OFTP2) ─────────────────────
@@ -137,7 +138,7 @@ const handlers = {
         oftp2OwnKeyStoreId: args.ownKeyStoreId,
       };
       const res = await axios.post(`${BASE_URL}/api/oftp-connections`, body, { headers });
-      return `OFTP2 bağlantısı oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("OFTP2 connection", res.data);
     },
 
     mip_update_oftp2_connection: async (args, headers) => {
@@ -148,7 +149,7 @@ const handlers = {
       });
       const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
       const existing = items.find((o) => o.id === id);
-      if (!existing) throw new Error(`OFTP2 bağlantısı bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("OFTP2 connection", id);
       const body = {
         oftp2Name: args.oftp2Name ?? existing.oftp2Name,
         oftp2OwnSSID: args.oftp2OwnSSID ?? existing.oftp2OwnSSID,
@@ -168,12 +169,12 @@ const handlers = {
       if (args.oftp2OwnPassword !== undefined) body.oftp2OwnPassword = args.oftp2OwnPassword;
       if (args.oftp2PartnerPassword !== undefined) body.oftp2PartnerPassword = args.oftp2PartnerPassword;
       const res = await axios.put(`${BASE_URL}/api/oftp-connections/${id}`, body, { headers });
-      return `OFTP2 bağlantısı güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("OFTP2 connection", res.data);
     },
 
     mip_delete_oftp2_connection: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/oftp-connections/${args.id}`, { headers });
-      return `OFTP2 bağlantısı silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("OFTP2 connection", `id ${args.id}`, res.data);
     },
 };
 

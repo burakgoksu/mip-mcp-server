@@ -3,6 +3,7 @@ import { BASE_URL } from "../config.js";
 import FormData from "form-data";
 import fs from "fs";
 import { saveFile, extractFilename } from "../util.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Flow Mapping ──
@@ -91,7 +92,7 @@ const handlers = {
 
     mip_import_flow_mappings: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -100,12 +101,12 @@ const handlers = {
         form,
         { headers: { ...headers, ...form.getHeaders() } }
       );
-      return `Flow mapping import tamamlandı: ${JSON.stringify(res.data)}`;
+      return t("flows.mappingImportDone", { detail: JSON.stringify(res.data) }, "Flow mapping import completed: {detail}");
     },
     // ── Flow Mapping Sample ──────────────────────────────────────────────────
     mip_upload_flow_mapping_sample: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -113,12 +114,12 @@ const handlers = {
       const res = await axios.post(`${BASE_URL}/api/flow-mapping-samples/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Flow mapping sample yüklendi: ${JSON.stringify(res.data)}`;
+      return msg.uploaded("Flow mapping sample", res.data);
     },
 
     mip_reupload_flow_mapping_sample: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -130,7 +131,7 @@ const handlers = {
         form,
         { headers: { ...headers, ...form.getHeaders() } }
       );
-      return `Flow mapping sample güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Flow mapping sample", res.data);
     },
 
     mip_download_flow_mapping_sample: async (args, headers) => {
@@ -140,7 +141,7 @@ const handlers = {
       );
       const filename = extractFilename(res.headers, `flow_mapping_sample_${args.id}.bin`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Flow mapping sample indirildi: ${filePath}`;
+      return msg.downloaded("Flow mapping sample", filePath);
     },
 };
 

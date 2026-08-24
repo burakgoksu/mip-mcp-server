@@ -2,6 +2,7 @@
 // SAP XI/PI mesaj kuyrukları: listele, özet, payload, retry/cancel. /api/xi-queues.
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   {
@@ -89,12 +90,12 @@ const handlers = {
 
   mip_retry_xi_queue_message: async (args, headers) => {
     const res = await axios.patch(`${BASE_URL}/api/xi-queues/${encodeURIComponent(args.id)}/retry`, null, { headers });
-    return `XI mesajı retry (id ${args.id}): ${JSON.stringify(res.data)}`;
+    return t("xi.messageRetried", { id: args.id, detail: JSON.stringify(res.data) }, "XI message retried (id {id}): {detail}");
   },
 
   mip_cancel_xi_queue_message: async (args, headers) => {
     const res = await axios.patch(`${BASE_URL}/api/xi-queues/${encodeURIComponent(args.id)}/cancel`, null, { headers });
-    return `XI mesajı iptal (id ${args.id}): ${JSON.stringify(res.data)}`;
+    return t("xi.messageCancelled", { id: args.id, detail: JSON.stringify(res.data) }, "XI message cancelled (id {id}): {detail}");
   },
 };
 

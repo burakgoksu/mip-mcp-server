@@ -3,6 +3,7 @@ import { BASE_URL } from "../config.js";
 import FormData from "form-data";
 import fs from "fs";
 import { saveFile, extractFilename } from "../util.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Key Store ──
@@ -94,7 +95,7 @@ const handlers = {
     // ── Key Store ────────────────────────────────────────────────────────────
     mip_upload_key_store: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -107,12 +108,12 @@ const handlers = {
       const res = await axios.put(`${BASE_URL}/api/key-stores/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Key store yüklendi: ${JSON.stringify(res.data)}`;
+      return msg.uploaded("Key store", res.data);
     },
 
     mip_reupload_key_store: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -126,7 +127,7 @@ const handlers = {
       const res = await axios.put(`${BASE_URL}/api/key-stores/${args.id}/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Key store güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Key store", res.data);
     },
 
     mip_download_key_store: async (args, headers) => {
@@ -137,12 +138,12 @@ const handlers = {
       );
       const filename = extractFilename(res.headers, `keystore_${args.id}.jks`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Key store indirildi: ${filePath}`;
+      return msg.downloaded("Key store", filePath);
     },
     // ── Certificate ──────────────────────────────────────────────────────────
     mip_upload_certificate: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -150,12 +151,12 @@ const handlers = {
       const res = await axios.post(`${BASE_URL}/api/certificates/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Sertifika yüklendi: ${JSON.stringify(res.data)}`;
+      return msg.uploaded("Certificate", res.data);
     },
 
     mip_reupload_certificate: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -165,7 +166,7 @@ const handlers = {
       const res = await axios.put(`${BASE_URL}/api/certificates/${args.id}/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Sertifika güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Certificate", res.data);
     },
 
     mip_download_certificate: async (args, headers) => {
@@ -175,7 +176,7 @@ const handlers = {
       );
       const filename = extractFilename(res.headers, `certificate_${args.id}.crt`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Sertifika indirildi: ${filePath}`;
+      return msg.downloaded("Certificate", filePath);
     },
 };
 

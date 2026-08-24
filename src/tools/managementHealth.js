@@ -87,18 +87,21 @@ const handlers = {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      let md = `# MIP System Health Raporu\n\n`;
-      md += `**Zaman:** ${ts}  |  **Örnekleme:** ${samples} örnek × ${intervalMs}ms  |  **Pod sayısı:** ${Object.keys(pods).length}\n\n`;
+      let md = t("health.reportTitle", null, "# MIP System Health Report") + `\n\n`;
+      md += t("health.meta", { ts, samples, intervalMs, pods: Object.keys(pods).length },
+        "**Time:** {ts}  |  **Sampling:** {samples} samples × {intervalMs}ms  |  **Pod count:** {pods}") + `\n\n`;
       for (const [name, d] of Object.entries(pods)) {
         const c = stat(d.cpu), m = stat(d.mem), f = stat(d.inflight);
-        const cpuWarn = c.max > 0.8 ? " ⚠️ YÜKSEK" : c.max > 0.5 ? " ⚠️" : " ✅";
+        const cpuWarn = c.max > 0.8 ? t("health.high", null, " ⚠️ HIGH") : c.max > 0.5 ? " ⚠️" : " ✅";
         md += `## Pod: ${name}\n\n`;
-        md += `| Metrik | Min | Ortalama | Maks | Durum |\n|---|---|---|---|---|\n`;
+        // Only the labels are translated; the markdown table skeleton stays in code.
+        md += t("health.tableHeader", null, "| Metric | Min | Average | Max | Status |") + `\n|---|---|---|---|---|\n`;
         md += `| CPU | ${pct(c.min)} | ${pct(c.avg)} | ${pct(c.max)} |${cpuWarn} |\n`;
-        md += `| Bellek | ${mb(m.min)} | ${mb(m.avg)} | ${mb(m.max)} | ${m.max / 1024 > 8 ? "⚠️" : "✅"} |\n`;
-        md += `| Inflight Exchanges | ${f.min} | ${f.avg.toFixed(1)} | ${f.max} | ${f.max > 1000 ? "⚠️ yoğun" : "✅"} |\n\n`;
+        md += `| ${t("health.rowMemory", null, "Memory")} | ${mb(m.min)} | ${mb(m.avg)} | ${mb(m.max)} | ${m.max / 1024 > 8 ? "⚠️" : "✅"} |\n`;
+        md += `| Inflight Exchanges | ${f.min} | ${f.avg.toFixed(1)} | ${f.max} | ${f.max > 1000 ? t("health.busy", null, "⚠️ busy") : "✅"} |\n\n`;
       }
-      md += `_Not: Bu MIP instance'ında geçmiş (historical) health verisi mevcut değil; rapor yukarıdaki kısa örnekleme penceresine dayanır._\n`;
+      md += t("health.note", null,
+        "_Note: this MIP instance has no historical health data; the report is based on the short sampling window above._") + `\n`;
       return md;
     },
 
@@ -128,7 +131,8 @@ const handlers = {
       const fnTs = ts.replace(/[: ]/g, "-");
       const buffer = await buildSystemHealthXlsx(pods, sampleRows, { ts, samples, intervalMs });
       const filePath = saveFile(buffer, `MIP_System_Health_${fnTs}.xlsx`);
-      return `System Health Excel raporu oluşturuldu (${samples} örnek, ${Object.keys(pods).length} pod): ${filePath}`;
+      return t("health.excelCreated", { samples, pods: Object.keys(pods).length, path: filePath },
+        "System Health Excel report created ({samples} samples, {pods} pods): {path}");
     },
 
     mip_test_connectivity: async (args, headers) => {

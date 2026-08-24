@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── JDBC Destinations (Operations > Destinations > JDBC) ──────────────────────
@@ -117,7 +118,7 @@ const handlers = {
     mip_create_jdbc_destination: async (args, headers) => {
       // Backend userName/password'ü TÜM sürücülerde zorunlu tutar (mongodb dahil).
       if (!args.userName || !args.password) {
-        throw new Error("userName ve password zorunludur (mongodb dahil tüm sürücüler).");
+        throw err.at("jdbc.userPasswordRequired", null, "userName and password are required (for all drivers, mongodb included).");
       }
       const body = {
         databaseName: args.databaseName,
@@ -127,7 +128,7 @@ const handlers = {
         password: args.password,
       };
       const res = await axios.post(`${BASE_URL}/api/databases`, body, { headers });
-      return `JDBC destination oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("JDBC destination", res.data);
     },
 
     mip_update_jdbc_destination: async (args, headers) => {
@@ -138,7 +139,7 @@ const handlers = {
       });
       const items = cur.data?.content ?? (Array.isArray(cur.data) ? cur.data : []);
       const existing = items.find((d) => d.id === id);
-      if (!existing) throw new Error(`JDBC destination bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("JDBC destination", id);
       // response alanlarını request alanlarına map et; parola base64 -> düz metin.
       const decodePw = (v) => {
         if (!v) return "";
@@ -152,12 +153,12 @@ const handlers = {
         password: args.password ?? decodePw(existing.databasePassword),
       };
       const res = await axios.put(`${BASE_URL}/api/databases/${id}`, body, { headers });
-      return `JDBC destination güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("JDBC destination", res.data);
     },
 
     mip_delete_jdbc_destination: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/databases/${args.id}`, { headers });
-      return `JDBC destination silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("JDBC destination", `id ${args.id}`, res.data);
     },
 };
 

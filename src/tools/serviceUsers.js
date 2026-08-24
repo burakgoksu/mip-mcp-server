@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Service Users ──
@@ -139,7 +140,7 @@ const handlers = {
         role: args.roles,
         roles: args.roles,
       }, { headers });
-      return `Service user oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Service user", res.data);
     },
 
     mip_update_service_user: async (args, headers) => {
@@ -148,12 +149,12 @@ const handlers = {
       if (args.password) body.password = args.password;
       if (args.roles) { body.role = args.roles; body.roles = args.roles; } // role (v1.16+) + roles (eski)
       const res = await axios.put(`${BASE_URL}/api/service-users/${args.username}`, body, { headers });
-      return `Service user güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Service user", res.data);
     },
 
     mip_delete_service_user: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/service-users/${args.username}`, { headers });
-      return `Service user silindi: ${JSON.stringify(res.data)}`;
+      return msg.deleted("Service user", res.data);
     },
 
     mip_toggle_service_user_lock: async (args, headers) => {
@@ -162,7 +163,13 @@ const handlers = {
         { locked: args.locked },
         { headers }
       );
-      return `Hesap kilidi ${args.locked ? "aktifleştirildi" : "kaldırıldı"}: ${JSON.stringify(res.data)}`;
+      // Two whole message keys, never a translated fragment: an agglutinative
+      // language cannot splice "locked"/"unlocked" into a sentence frame.
+      return t(
+        args.locked ? "serviceUsers.accountLocked" : "serviceUsers.accountUnlocked",
+        { detail: JSON.stringify(res.data) },
+        args.locked ? "Account locked: {detail}" : "Account unlocked: {detail}"
+      );
     },
 };
 

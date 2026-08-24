@@ -5,6 +5,7 @@ import fs from "fs";
 import FormData from "form-data";
 import { BASE_URL } from "../config.js";
 import { saveFile, extractFilename } from "../util.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const EDI_TYPES = ["EDIFACT", "EANCOM", "ANSI_X12", "ODETTE", "VDA", "TRADACOMS"];
 
@@ -79,7 +80,7 @@ const tools = [
 
 // Ortak: multipart body (file + data JSON).
 function buildForm(args) {
-  if (!fs.existsSync(args.filePath)) throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+  if (!fs.existsSync(args.filePath)) throw err.fileNotFound(args.filePath);
   const form = new FormData();
   form.append("file", fs.createReadStream(args.filePath));
   form.append(
@@ -108,7 +109,7 @@ const handlers = {
     const res = await axios.put(`${BASE_URL}/api/edi-schemas/upload`, form, {
       headers: { ...headers, ...form.getHeaders() },
     });
-    return `EDI schema yüklendi (${args.resourceName}): ${JSON.stringify(res.data)}`;
+    return msg.uploadedRef("EDI schema", args.resourceName, res.data);
   },
 
   mip_reupload_edi_schema: async (args, headers) => {
@@ -116,12 +117,12 @@ const handlers = {
     const res = await axios.put(`${BASE_URL}/api/edi-schemas/${args.id}/upload`, form, {
       headers: { ...headers, ...form.getHeaders() },
     });
-    return `EDI schema güncellendi (id ${args.id}): ${JSON.stringify(res.data)}`;
+    return msg.updatedRef("EDI schema", `id ${args.id}`, res.data);
   },
 
   mip_delete_edi_schema: async (args, headers) => {
     const res = await axios.delete(`${BASE_URL}/api/edi-schemas/${args.id}`, { headers });
-    return `EDI schema silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+    return msg.deletedRef("EDI schema", `id ${args.id}`, res.data);
   },
 
   mip_download_edi_schema: async (args, headers) => {
@@ -131,7 +132,7 @@ const handlers = {
     });
     const filename = extractFilename(res.headers, `edi_schema_${args.id}.xsd`);
     const filePath = saveFile(Buffer.from(res.data), filename);
-    return `EDI schema indirildi: ${filePath}`;
+    return msg.downloaded("EDI schema", filePath);
   },
 };
 

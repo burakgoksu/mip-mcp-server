@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Search Message (Monitoring > Search-Message) ─────────────────────────────
@@ -52,7 +53,7 @@ const handlers = {
           .map((r) => r.id);
         if (ruleIds.length === 0) {
           throw new Error(
-            `'${args.flowId}' için etkin message search rule yok. Önce mip_create_message_search_rule ile kural ekleyip isEnabled=true yapın veya ruleIds belirtin.`
+            t("searchMessage.noEnabledRule", { flowId: args.flowId }, "No enabled message search rule for '{flowId}'. Add a rule with mip_create_message_search_rule and set isEnabled=true, or specify ruleIds.")
           );
         }
       }

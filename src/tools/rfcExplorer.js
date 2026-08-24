@@ -5,6 +5,7 @@
 // { data: ... } zarfıyla döner. NOT: mip_*_rfc_destination tool'larından ayrıdır.
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 // Bağlantı gövdesi: kayıtlı RFC destination (destinationId) VEYA satır-içi SAP bilgisi.
 const INLINE = ["ashost", "sysnr", "client", "user", "password", "lang"];
@@ -12,7 +13,7 @@ function connBody(args) {
   if (args.destinationId != null) return { destinationId: args.destinationId };
   const c = Object.fromEntries(INLINE.filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
   if (!c.ashost || !c.sysnr || !c.client || !c.user || !c.password) {
-    throw new Error("SAP bağlantısı için ya destinationId ya da ashost+sysnr+client+user+password verilmeli.");
+    throw err.at("rfc.connectionArgsRequired", null, "For a SAP connection, provide either destinationId or ashost+sysnr+client+user+password.");
   }
   return c;
 }
@@ -60,7 +61,7 @@ const handlers = {
     JSON.stringify((await axios.post(`${BASE_URL}/api/sap-connections/test-connection`, connBody(args), { headers })).data, null, 2),
 
   mip_browse_rfcs: async (args, headers) => {
-    if (!args.namePattern || args.namePattern.trim().length < 2) throw new Error("namePattern en az 2 karakter olmalı.");
+    if (!args.namePattern || args.namePattern.trim().length < 2) throw err.at("rfc.namePatternTooShort", null, "namePattern must be at least 2 characters.");
     const body = { ...connBody(args), namePattern: args.namePattern.trim() };
     const res = await axios.post(`${BASE_URL}/api/sap-connections/browse-rfcs`, body, { headers });
     const d = unwrap(res.data);

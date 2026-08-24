@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Message Search Rules (Integrations > Message-Search-Rules) ────────────────
@@ -104,7 +105,7 @@ const handlers = {
         isEnabled: args.isEnabled ?? false,
       };
       const res = await axios.post(`${BASE_URL}/api/message-search-rules`, body, { headers });
-      return `Message search rule oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Message search rule", res.data);
     },
 
     mip_update_message_search_rule: async (args, headers) => {
@@ -115,7 +116,7 @@ const handlers = {
         params: { paginationPage: 0, paginationSize: 500 },
       });
       const existing = (cur.data?.content ?? []).find((r) => r.id === id);
-      if (!existing) throw new Error(`Message search rule bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("Message search rule", id);
       const body = {
         flowId: args.flowId ?? existing.flowId,
         name: args.name ?? existing.name,
@@ -124,17 +125,17 @@ const handlers = {
         isEnabled: args.isEnabled ?? existing.isEnabled,
       };
       const res = await axios.put(`${BASE_URL}/api/message-search-rules/${id}`, body, { headers });
-      return `Message search rule güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Message search rule", res.data);
     },
 
     mip_delete_message_search_rule: async (args, headers) => {
       try {
         const res = await axios.delete(`${BASE_URL}/api/message-search-rules/${args.id}`, { headers });
-        return `Message search rule silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+        return msg.deletedRef("Message search rule", `id ${args.id}`, res.data);
       } catch (err) {
         if (err?.response?.status === 409) {
           throw new Error(
-            `Kural silinemedi (409): etkin bir kural doğrudan silinemez. Önce mip_update_message_search_rule ile isEnabled=false yapın.`
+            t("messageSearchRules.enabledCannotDelete", null, "Rule could not be deleted (409): an enabled rule cannot be deleted directly. Set isEnabled=false via mip_update_message_search_rule first.")
           );
         }
         throw err;

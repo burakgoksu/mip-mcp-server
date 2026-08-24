@@ -2,6 +2,7 @@ import axios from "axios";
 import { BASE_URL } from "../config.js";
 import { saveFile, extractFilename } from "../util.js";
 import { buildMonitoringReportXlsx } from "../xlsx.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Monitoring ──
@@ -218,7 +219,7 @@ const handlers = {
       // 204 = bu kriterlerde kayıt yok (axios bunu hata saymaz, res.data boş gelir)
       if (res.status === 204 || !res.data) {
         return JSON.stringify(
-          { flowId: args.flowId, type: params.type, content: [], totalElements: 0, note: "Bu kriterlerde kayıt yok (HTTP 204)." },
+          { flowId: args.flowId, type: params.type, content: [], totalElements: 0, note: t("monitoring.noRecords", null, "No records for these criteria (HTTP 204).") },
           null,
           2
         );
@@ -332,7 +333,8 @@ const handlers = {
               page++;
             }
           } catch (e) {
-            process.stderr.write(`uyarı: ${f.id}/${type} çekilemedi: ${e.message}\n`);
+            process.stderr.write(t("monitoring.fetchFailed", { flow: f.id, type, message: e.message },
+              "warning: could not fetch {flow}/{type}: {message}\n"));
           }
           if (truncated) break;
         }
@@ -354,14 +356,23 @@ const handlers = {
       const nz = totals.map((t, i) => [i, t]).filter((x) => x[1] > 0).sort((a, b) => a[1] - b[1]);
       const quietest = nz[0], busiest = nz[nz.length - 1];
       const lines = [
-        `Excel raporu oluşturuldu: ${filePath}`,
-        `Aralık: ${startDate} → ${endDate}` + (startTime || endTime ? ` (saat ${startTime || "00:00"}-${endTime || "23:59"})` : ""),
-        `Toplam mesaj: ${grand} | Flow sayısı: ${meta.flowCount} | Statüler: ${wantStatuses.join(",")}`,
+        t("monitoring.excelCreated", { path: filePath }, "Excel report created: {path}"),
+        t("monitoring.range", { start: startDate, end: endDate }, "Range: {start} → {end}") +
+          (startTime || endTime
+            ? t("monitoring.rangeWithTime", { startTime: startTime || "00:00", endTime: endTime || "23:59" }, " (time {startTime}-{endTime})")
+            : ""),
+        t("monitoring.totals", { total: grand, flows: meta.flowCount, statuses: wantStatuses.join(",") },
+          "Total messages: {total} | Flow count: {flows} | Statuses: {statuses}"),
       ];
       if (quietest && busiest) {
-        lines.push(`En sakin saat: ${String(quietest[0]).padStart(2, "0")}:00 (${quietest[1]}) | En yoğun: ${String(busiest[0]).padStart(2, "0")}:00 (${busiest[1]})`);
+        lines.push(t("monitoring.quietBusy", {
+          quiet: `${String(quietest[0]).padStart(2, "0")}:00`, quietCount: quietest[1],
+          busy: `${String(busiest[0]).padStart(2, "0")}:00`, busyCount: busiest[1],
+        }, "Quietest hour: {quiet} ({quietCount}) | Busiest: {busy} ({busyCount})"));
       }
-      if (truncated) lines.push("UYARI: Güvenlik limiti (2.000.000 kayıt) aşıldı; rapor kısmi. Daha dar aralık seçin.");
+      if (truncated)
+        lines.push(t("monitoring.truncated", null,
+          "WARNING: the safety limit (2,000,000 records) was exceeded; the report is partial. Choose a narrower range."));
       return lines.join("\n");
     },
 
@@ -373,7 +384,7 @@ const handlers = {
       });
       const filename = extractFilename(res.headers, `payload_${args.messageId}.bin`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Payload indirildi: ${filePath}`;
+      return msg.downloaded("Payload", filePath);
     },
 
     mip_download_log_details_payload: async (args, headers) => {
@@ -388,7 +399,7 @@ const handlers = {
       });
       const filename = extractFilename(res.headers, `log_details_${args.messageId}.bin`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Log detay payload indirildi: ${filePath}`;
+      return msg.downloaded("Log detail payload", filePath);
     },
 
     mip_download_attachment_by_id: async (args, headers) => {
@@ -398,7 +409,7 @@ const handlers = {
       );
       const filename = extractFilename(res.headers, `attachment_${args.id}.bin`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Attachment indirildi: ${filePath}`;
+      return msg.downloaded("Attachment", filePath);
     },
 
     mip_download_all_attachments: async (args, headers) => {
@@ -409,7 +420,7 @@ const handlers = {
       });
       const filename = extractFilename(res.headers, `attachments_${args.messageId}.zip`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Attachment'lar indirildi: ${filePath}`;
+      return msg.downloaded("Attachments", filePath);
     },
 
     mip_get_system_logs: async (args, headers) => {
@@ -420,7 +431,7 @@ const handlers = {
       });
       const filename = extractFilename(res.headers, `system_logs_${args.startDate}_${args.endDate}.log`);
       const filePath = saveFile(Buffer.from(res.data), filename);
-      return `Sistem logları indirildi: ${filePath}`;
+      return msg.downloaded("System logs", filePath);
     },
 };
 

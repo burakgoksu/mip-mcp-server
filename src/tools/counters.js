@@ -1,5 +1,6 @@
 import axios from "axios";
 import { BASE_URL } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Counters (Integrations > Counters) ───────────────────────────────────────
@@ -103,7 +104,7 @@ const handlers = {
         length: args.length ?? 1,
       };
       const res = await axios.post(`${BASE_URL}/api/number-ranges`, body, { headers });
-      return `Counter oluşturuldu: ${JSON.stringify(res.data)}`;
+      return msg.created("Counter", res.data);
     },
 
     mip_update_counter: async (args, headers) => {
@@ -115,7 +116,7 @@ const handlers = {
         params: { paginationPage: 0, paginationSize: 500 },
       });
       const existing = (cur.data?.content ?? []).find((c) => c.id === id);
-      if (!existing) throw new Error(`Counter bulunamadı: id ${id}`);
+      if (!existing) throw err.notFound("Counter", id);
       const body = {
         name: updates.name ?? existing.name,
         minimumValue: updates.minimumValue ?? existing.minimumValue,
@@ -124,12 +125,12 @@ const handlers = {
         length: updates.length ?? existing.length,
       };
       const res = await axios.put(`${BASE_URL}/api/number-ranges/${id}`, body, { headers });
-      return `Counter güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Counter", res.data);
     },
 
     mip_delete_counter: async (args, headers) => {
       const res = await axios.delete(`${BASE_URL}/api/number-ranges/${args.id}`, { headers });
-      return `Counter silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("Counter", `id ${args.id}`, res.data);
     },
 };
 

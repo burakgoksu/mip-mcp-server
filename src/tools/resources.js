@@ -6,6 +6,7 @@ import path from "path";
 import { DOWNLOAD_DIR } from "../config.js";
 import { saveFile, extractFilename, ensureDownloadDir } from "../util.js";
 import { generateWsdl, ensureElementFormDefaultQualified } from "../wsdl.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ── Resource (Groovy / XSLT / vb.) ──
@@ -100,7 +101,7 @@ const handlers = {
     // ── Resource (Groovy / XSLT) ─────────────────────────────────────────────
     mip_upload_resource: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -112,12 +113,12 @@ const handlers = {
       const res = await axios.post(`${BASE_URL}/api/resources/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Resource yüklendi: ${JSON.stringify(res.data)}`;
+      return msg.uploaded("Resource", res.data);
     },
 
     mip_reupload_resource: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadı: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const form = new FormData();
       form.append("file", fs.createReadStream(args.filePath));
@@ -127,7 +128,7 @@ const handlers = {
       const res = await axios.put(`${BASE_URL}/api/resources/${args.id}/upload`, form, {
         headers: { ...headers, ...form.getHeaders() },
       });
-      return `Resource güncellendi: ${JSON.stringify(res.data)}`;
+      return msg.updated("Resource", res.data);
     },
 
     mip_list_resources: async (args, headers) => {
@@ -154,11 +155,12 @@ const handlers = {
       const outPath = args.outputPath ?? path.join(DOWNLOAD_DIR, resourceName);
       fs.writeFileSync(outPath, wsdlContent, "utf8");
 
-      let summary = `WSDL uretildi (elementFormDefault="qualified" baked-in): ${outPath}`;
+      let summary = t("wsdl.generated", { path: outPath },
+        'WSDL generated (elementFormDefault="qualified" baked in): {path}');
 
       if (args.uploadAfter) {
         if (!args.flowId) {
-          throw new Error("uploadAfter=true ise flowId zorunlu.");
+          throw err.at("wsdl.uploadAfterNeedsFlowId", null, "flowId is required when uploadAfter=true.");
         }
         const form = new FormData();
         form.append("file", fs.createReadStream(outPath));
@@ -170,7 +172,8 @@ const handlers = {
         const res = await axios.post(`${BASE_URL}/api/resources/upload`, form, {
           headers: { ...headers, ...form.getHeaders() },
         });
-        summary += `\nMIP'e yuklendi (flowId=${args.flowId}): ${JSON.stringify(res.data)}`;
+        summary += t("wsdl.uploadedToFlow", { flowId: args.flowId, detail: JSON.stringify(res.data) },
+          "\nUploaded to MIP (flowId={flowId}): {detail}");
       }
 
       // SOAP Start node'unu kurarken kopyala-yapistir icin bind metadata
@@ -186,16 +189,16 @@ const handlers = {
 
       return `${summary}
 
-SOAP Start connectorData'sina yazilacak alanlar (mip_create_and_import_flow icin):
+${t("wsdl.soapStartFields", null, "Fields to write into the SOAP Start connectorData (for mip_create_and_import_flow):")}
 ${JSON.stringify(bindingMetadata, null, 2)}
 
---- WSDL Icerigi ---
+${t("wsdl.contentHeader", null, "--- WSDL Content ---")}
 ${wsdlContent}`;
     },
 
     mip_upload_wsdl: async (args, headers) => {
       if (!fs.existsSync(args.filePath)) {
-        throw new Error(`Dosya bulunamadi: ${args.filePath}`);
+        throw err.fileNotFound(args.filePath);
       }
       const original = fs.readFileSync(args.filePath, "utf8");
       const { content: fixed, warnings, modified } = ensureElementFormDefaultQualified(original);
@@ -220,9 +223,12 @@ ${wsdlContent}`;
       });
 
       const validationNote = modified
-        ? `Dogrulama duzeltmeleri yapildi:\n- ${warnings.join("\n- ")}\nDuzeltilmis dosya: ${uploadPath}`
-        : `Dogrulama: tum <schema> elementlerinde elementFormDefault="qualified" zaten mevcut. Duzeltme gerekmedi.`;
-      return `WSDL yuklendi: ${JSON.stringify(res.data)}\n${validationNote}`;
+        ? t("wsdl.fixesApplied", { warnings: warnings.join("\n- "), path: uploadPath },
+            "Validation fixes applied:\n- {warnings}\nCorrected file: {path}")
+        : t("wsdl.noFixesNeeded", null,
+            'Validation: every <schema> element already has elementFormDefault="qualified". No correction was needed.');
+      return t("wsdl.uploaded", { detail: JSON.stringify(res.data), note: validationNote },
+        "WSDL uploaded: {detail}\n{note}");
     },
 };
 

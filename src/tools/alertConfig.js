@@ -1,5 +1,6 @@
 import axios from "axios";
 import { HEALTH_BASE } from "../config.js";
+import { msg, err, t } from "../i18n/index.js";
 
 const tools = [
   // ─── Alert Configurations (Operations > Alert Configurations) ─────────────────
@@ -103,12 +104,12 @@ const handlers = {
       const res = await axios.post(`${HEALTH_BASE}/api/email-alerts`, JSON.stringify({ email: args.email }), {
         headers: { ...headers, "Content-Type": "application/json" },
       });
-      return `Alert mail alıcısı eklendi (${args.email}): ${JSON.stringify(res.data)}`;
+      return msg.addedRef("Alert mail recipient", args.email, res.data);
     },
 
     mip_remove_alert_config_email: async (args, headers) => {
       const res = await axios.delete(`${HEALTH_BASE}/api/email-alerts/${args.id}`, { headers });
-      return `Alert mail alıcısı silindi (id ${args.id}): ${JSON.stringify(res.data)}`;
+      return msg.deletedRef("Alert mail recipient", `id ${args.id}`, res.data);
     },
 
     mip_get_alert_rules: async (args, headers) => {
@@ -123,14 +124,15 @@ const handlers = {
       const byKey = new Map(existing.map((r) => [r.componentKey, r]));
       for (const upd of args.rules) {
         const base = byKey.get(upd.componentKey);
-        if (!base) throw new Error(`Bileşen bulunamadı: ${upd.componentKey}. Geçerli: ${[...byKey.keys()].join(", ")}`);
+        if (!base)
+          throw err.at("alertConfig.componentNotFound", { key: upd.componentKey, valid: [...byKey.keys()].join(", ") }, "Component not found: {key}. Valid: {valid}");
         byKey.set(upd.componentKey, { ...base, ...upd });
       }
       const merged = [...byKey.values()];
       const res = await axios.put(`${HEALTH_BASE}/api/alert-rules/multiple-component`, JSON.stringify(merged), {
         headers: { ...headers, "Content-Type": "application/json" },
       });
-      return `Alert rules güncellendi (${args.rules.map((r) => r.componentKey).join(", ")}): ${JSON.stringify(res.data)}`;
+      return msg.updatedRef("Alert rules", args.rules.map((r) => r.componentKey).join(", "), res.data);
     },
 
     mip_get_cron_frequency: async (args, headers) => {
@@ -144,14 +146,15 @@ const handlers = {
       const byName = new Map(existing.map((c) => [c.componentName, c]));
       for (const upd of args.crons) {
         const base = byName.get(upd.componentName);
-        if (!base) throw new Error(`Bileşen bulunamadı: ${upd.componentName}. Geçerli: ${[...byName.keys()].join(", ")}`);
+        if (!base)
+          throw err.at("alertConfig.componentNotFound", { key: upd.componentName, valid: [...byName.keys()].join(", ") }, "Component not found: {key}. Valid: {valid}");
         byName.set(upd.componentName, { ...base, ...upd });
       }
       const merged = [...byName.values()];
       const res = await axios.put(`${HEALTH_BASE}/api/cron-frequency/multiple-component`, JSON.stringify(merged), {
         headers: { ...headers, "Content-Type": "application/json" },
       });
-      return `Cron frequency güncellendi (${args.crons.map((c) => c.componentName).join(", ")}): ${JSON.stringify(res.data)}`;
+      return msg.updatedRef("Cron frequency", args.crons.map((c) => c.componentName).join(", "), res.data);
     },
 };
 

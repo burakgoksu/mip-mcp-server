@@ -3,6 +3,13 @@
 // ─── System Health Excel Builder (SABIT/STANDART şablon) ──────────────────────
 // pods: { podName -> {cpu:[], mem:[], inflight:[]} } ; sampleRows: [{sample,pod,cpu,mem,inflight}]
 // meta: { ts, samples, intervalMs }. Her çağrıda birebir aynı 2-sayfalı düzen üretir.
+import { t, NUMBER_LOCALE } from "./i18n/index.js";
+
+// Sheet names are referenced from both the sheet part and workbook.xml, so
+// resolve each one once - a mismatch between the two corrupts the workbook.
+const SHEET_SUMMARY = t("xlsx.sheetSummary", null, "Summary");
+const SHEET_SAMPLES = t("xlsx.sheetSamples", null, "Samples");
+
 export async function buildSystemHealthXlsx(pods, sampleRows, meta) {
   const JSZip = (await import("jszip")).default;
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -33,24 +40,34 @@ export async function buildSystemHealthXlsx(pods, sampleRows, meta) {
 
   // Sheet 1: Ozet
   const s1 = [];
-  s1.push([S("MIP System Health Raporu", 1)]);
-  s1.push([S("Zaman", 3), S(meta.ts)]);
-  s1.push([S("Ornekleme", 3), S(`${meta.samples} ornek x ${meta.intervalMs} ms`)]);
-  s1.push([S("Pod sayisi", 3), N(Object.keys(pods).length)]);
+  s1.push([S(t("xlsx.healthTitle", null, "MIP System Health Report"), 1)]);
+  s1.push([S(t("xlsx.time", null, "Time"), 3), S(meta.ts)]);
+  s1.push([S(t("xlsx.sampling", null, "Sampling"), 3),
+           S(t("xlsx.samplingValue", { samples: meta.samples, intervalMs: meta.intervalMs }, "{samples} samples x {intervalMs} ms"))]);
+  s1.push([S(t("xlsx.podCount", null, "Pod count"), 3), N(Object.keys(pods).length)]);
   s1.push([]);
-  s1.push(["Pod", "CPU Min %", "CPU Ort %", "CPU Maks %", "Bellek Min (MB)", "Bellek Ort (MB)", "Bellek Maks (MB)", "Inflight Min", "Inflight Ort", "Inflight Maks", "Durum"].map((h) => S(h, 2)));
+  s1.push([
+    t("xlsx.pod", null, "Pod"),
+    t("xlsx.cpuMin", null, "CPU Min %"), t("xlsx.cpuAvg", null, "CPU Avg %"), t("xlsx.cpuMax", null, "CPU Max %"),
+    t("xlsx.memMin", null, "Memory Min (MB)"), t("xlsx.memAvg", null, "Memory Avg (MB)"), t("xlsx.memMax", null, "Memory Max (MB)"),
+    t("xlsx.inflightMin", null, "Inflight Min"), t("xlsx.inflightAvg", null, "Inflight Avg"), t("xlsx.inflightMax", null, "Inflight Max"),
+    t("xlsx.status", null, "Status"),
+  ].map((h) => S(h, 2)));
   for (const [name, d] of Object.entries(pods)) {
     const c = stat(d.cpu), m = stat(d.mem), f = stat(d.inflight);
     const warn = c.max * 100 > 80 || m.max / 1024 > 8 || f.max > 1000;
     s1.push([
       S(name), N(r2(c.min * 100)), N(r2(c.avg * 100)), N(r2(c.max * 100)),
       N(Math.round(m.min)), N(Math.round(m.avg)), N(Math.round(m.max)),
-      N(f.min), N(r2(f.avg)), N(f.max), S(warn ? "UYARI" : "OK", warn ? 4 : 0),
+      N(f.min), N(r2(f.avg)), N(f.max), S(warn ? t("xlsx.warning", null, "WARNING") : "OK", warn ? 4 : 0),
     ]);
   }
 
   // Sheet 2: Ornekler (ham)
-  const s2 = [["Ornek #", "Pod", "CPU %", "Bellek (MB)", "Inflight"].map((h) => S(h, 2))];
+  const s2 = [[
+    t("xlsx.sampleNo", null, "Sample #"), t("xlsx.pod", null, "Pod"),
+    t("xlsx.cpuPct", null, "CPU %"), t("xlsx.memoryMb", null, "Memory (MB)"), "Inflight",
+  ].map((h) => S(h, 2))];
   for (const row of sampleRows) s2.push([N(row.sample), S(row.pod), N(r2(row.cpu * 100)), N(Math.round(row.mem)), N(row.inflight)]);
 
   const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="15"/><color rgb="FF203864"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF305496"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
@@ -58,7 +75,7 @@ export async function buildSystemHealthXlsx(pods, sampleRows, meta) {
   const zip = new JSZip();
   zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
   zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
-  zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Ozet" sheetId="1" r:id="rId1"/><sheet name="Ornekler" sheetId="2" r:id="rId2"/></sheets></workbook>`);
+  zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${esc(SHEET_SUMMARY)}" sheetId="1" r:id="rId1"/><sheet name="${esc(SHEET_SAMPLES)}" sheetId="2" r:id="rId2"/></sheets></workbook>`);
   zip.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file("xl/styles.xml", styles);
   zip.file("xl/worksheets/sheet1.xml", sheetXml(s1, [26, 12, 12, 12, 16, 16, 16, 12, 12, 12, 10]));
@@ -146,21 +163,24 @@ export async function buildMonitoringReportXlsx(agg, meta) {
     const withVal = hours.map((h, i) => [h, totals[i]]).filter((x) => x[1] > 0).sort((a, b) => a[1] - b[1]);
     const minH = withVal[0], maxH = withVal[withVal.length - 1];
     const rows = [
-      [S("MIP MONITORING HACİM RAPORU", 5)],
-      [S(`Tarih aralığı: ${meta.startDate} → ${meta.endDate}`)],
-      [S(`Saat aralığı: ${meta.startTime || "00:00"} - ${meta.endTime || "23:59"}`)],
-      [S(`Statüler: ${meta.statuses.join(", ")}`)],
-      [S(`Toplam mesaj: ${grand.toLocaleString("tr-TR")}   |   Flow sayısı: ${meta.flowCount}`)],
+      [S(t("xlsx.reportTitle", null, "MIP MONITORING VOLUME REPORT"), 5)],
+      [S(t("xlsx.dateRange", { start: meta.startDate, end: meta.endDate }, "Date range: {start} → {end}"))],
+      [S(t("xlsx.timeRange", { start: meta.startTime || "00:00", end: meta.endTime || "23:59" }, "Time range: {start} - {end}"))],
+      [S(t("xlsx.statuses", { statuses: meta.statuses.join(", ") }, "Statuses: {statuses}"))],
+      [S(t("xlsx.totalMessages", { total: grand.toLocaleString(NUMBER_LOCALE), flows: meta.flowCount },
+        "Total messages: {total}   |   Flow count: {flows}"))],
       [],
     ];
     if (minH && maxH) {
-      rows.push([S("En sakin saat", 2), S(`${String(minH[0]).padStart(2, "0")}:00`, 2), N(minH[1], 2)]);
-      rows.push([S("En yoğun saat", 3), S(`${String(maxH[0]).padStart(2, "0")}:00`, 3), N(maxH[1], 3)]);
+      rows.push([S(t("xlsx.quietestHour", null, "Quietest hour"), 2), S(`${String(minH[0]).padStart(2, "0")}:00`, 2), N(minH[1], 2)]);
+      rows.push([S(t("xlsx.busiestHour", null, "Busiest hour"), 3), S(`${String(maxH[0]).padStart(2, "0")}:00`, 3), N(maxH[1], 3)]);
     } else {
-      rows.push([S("Seçilen aralıkta kayıt bulunamadı.")]);
+      rows.push([S(t("xlsx.noRecords", null, "No records found in the selected range."))]);
     }
-    if (meta.truncated) rows.push([], [S("UYARI: Güvenlik limiti aşıldı; rapor kısmi veridir. Daha dar bir aralık seçin.", 3)]);
-    sheets.push({ name: "Özet", rows, cols: [18, 16, 12] });
+    if (meta.truncated)
+      rows.push([], [S(t("xlsx.truncated", null,
+        "WARNING: the safety limit was exceeded; the report holds partial data. Choose a narrower range."), 3)]);
+    sheets.push({ name: SHEET_SUMMARY, rows, cols: [18, 16, 12] });
   }
 
   // 2) Saat
@@ -169,7 +189,12 @@ export async function buildMonitoringReportXlsx(agg, meta) {
     const max = Math.max(1, ...totals);
     const nz = totals.filter((t) => t > 0);
     const min = nz.length ? Math.min(...nz) : 0;
-    const rows = [[S("Saat", 1), S("Toplam", 1), S("Başarılı", 1), S("Hata", 1), S("Delivering", 1), S("Pay %", 1), S("Grafik", 1)]];
+    const rows = [[
+      S(t("xlsx.colHour", null, "Hour"), 1), S(t("xlsx.colTotal", null, "Total"), 1),
+      S(t("xlsx.colSuccess", null, "Successful"), 1), S(t("xlsx.colError", null, "Error"), 1),
+      S(t("xlsx.delivering", null, "Delivering"), 1), S(t("xlsx.colShare", null, "Share %"), 1),
+      S(t("xlsx.colChart", null, "Chart"), 1),
+    ]];
     hours.forEach((h) => {
       const c = agg.hour[h], t = tot(c);
       const hi = t > 0 && t === min ? 2 : t === max ? 3 : 0;
@@ -180,42 +205,42 @@ export async function buildMonitoringReportXlsx(agg, meta) {
         S("█".repeat(Math.round((t / max) * 40))),
       ]);
     });
-    rows.push([S("TOPLAM", 5), N(totals.reduce((a, b) => a + b, 0), 5)]);
-    sheets.push({ name: "Saat", rows, cols: [10, 10, 10, 8, 10, 9, 46] });
+    rows.push([S(t("xlsx.grandTotal", null, "GRAND TOTAL"), 5), N(totals.reduce((a, b) => a + b, 0), 5)]);
+    sheets.push({ name: t("xlsx.sheetHour", null, "Hour"), rows, cols: [10, 10, 10, 8, 10, 9, 46] });
   }
 
   // 3) Gün x Saat (heatmap)
   {
     const dates = Object.keys(agg.dateHour).sort();
     const maxCell = Math.max(1, ...dates.flatMap((d) => hours.map((h) => agg.dateHour[d][h])));
-    const rows = [[S("Tarih", 1), S("Toplam", 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
+    const rows = [[S(t("xlsx.colDate", null, "Date"), 1), S(t("xlsx.colTotal", null, "Total"), 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
     for (const d of dates) {
       const arr = agg.dateHour[d];
       const t = hours.reduce((a, h) => a + arr[h], 0);
       rows.push([S(d), N(t), ...hours.map((h) => N(arr[h], heat(arr[h], maxCell)))]);
     }
-    sheets.push({ name: "Gun x Saat", rows, cols: [12, 9, ...hours.map(() => 5)] });
+    sheets.push({ name: t("xlsx.sheetDayHour", null, "Day x Hour"), rows, cols: [12, 9, ...hours.map(() => 5)] });
   }
 
   // 4) Flow x Saat (heatmap)
   {
     const flowIds = Object.keys(agg.flowHour).sort((a, b) => agg.flowHour[b].reduce((x, y) => x + y, 0) - agg.flowHour[a].reduce((x, y) => x + y, 0));
     const maxCell = Math.max(1, ...flowIds.flatMap((f) => hours.map((h) => agg.flowHour[f][h])));
-    const rows = [[S("Flow", 1), S("Toplam", 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
+    const rows = [[S(t("xlsx.flow", null, "Flow"), 1), S(t("xlsx.colTotal", null, "Total"), 1), ...hours.map((h) => S(String(h).padStart(2, "0"), 1))]];
     for (const f of flowIds) {
       const arr = agg.flowHour[f];
       const t = hours.reduce((a, h) => a + arr[h], 0);
       rows.push([S(f), N(t), ...hours.map((h) => N(arr[h], heat(arr[h], maxCell)))]);
     }
-    sheets.push({ name: "Flow x Saat", rows, cols: [44, 9, ...hours.map(() => 5)] });
+    sheets.push({ name: t("xlsx.sheetFlowHour", null, "Flow x Hour"), rows, cols: [44, 9, ...hours.map(() => 5)] });
   }
 
   // 5) Günlük Toplam
   {
     const dates = Object.keys(agg.byDate).sort();
-    const rows = [[S("Tarih", 1), S("Toplam mesaj", 1)]];
+    const rows = [[S(t("xlsx.colDate", null, "Date"), 1), S(t("xlsx.colTotalMessages", null, "Total messages"), 1)]];
     dates.forEach((d) => rows.push([S(d), N(agg.byDate[d])]));
-    sheets.push({ name: "Gunluk Toplam", rows, cols: [14, 14] });
+    sheets.push({ name: t("xlsx.sheetDailyTotal", null, "Daily Total"), rows, cols: [14, 14] });
   }
 
   // 6) Flow Özet
@@ -224,12 +249,16 @@ export async function buildMonitoringReportXlsx(agg, meta) {
       const T = (x) => agg.flowTotals[x].s + agg.flowTotals[x].e + agg.flowTotals[x].d;
       return T(b) - T(a);
     });
-    const rows = [[S("Flow", 1), S("Başarılı", 1), S("Hata", 1), S("Delivering", 1), S("Toplam", 1)]];
+    const rows = [[
+      S(t("xlsx.flow", null, "Flow"), 1), S(t("xlsx.colSuccess", null, "Successful"), 1),
+      S(t("xlsx.colError", null, "Error"), 1), S(t("xlsx.delivering", null, "Delivering"), 1),
+      S(t("xlsx.colTotal", null, "Total"), 1),
+    ]];
     ids.forEach((f) => {
       const v = agg.flowTotals[f];
       rows.push([S(f), N(v.s), N(v.e), N(v.d), N(v.s + v.e + v.d)]);
     });
-    sheets.push({ name: "Flow Ozet", rows, cols: [44, 10, 8, 10, 10] });
+    sheets.push({ name: t("xlsx.sheetFlowSummary", null, "Flow Summary"), rows, cols: [44, 10, 8, 10, 10] });
   }
 
   // zip / xlsx
