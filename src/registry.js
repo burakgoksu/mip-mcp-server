@@ -32,6 +32,9 @@ import searchMessage from "./tools/searchMessage.js";
 import messageSearchRules from "./tools/messageSearchRules.js";
 import alerts from "./tools/alerts.js";
 
+import { LANG, loadCatalog } from "./i18n/index.js";
+import { applyOverlay } from "./i18n/overlay.js";
+
 const MODULES = [
   queues,
   ediSchemas,
@@ -63,5 +66,12 @@ const MODULES = [
   credentials,
 ];
 
-export const tools = MODULES.flatMap((m) => m.tools);
+const RAW_TOOLS = MODULES.flatMap((m) => m.tools);
+
+// English is the source language, so 'en' is a zero-work fast path: no clone,
+// no catalog read. Any other locale gets the overlay applied here — the single
+// place in the codebase where tool metadata is localized.
+export const tools =
+  LANG === "en" ? RAW_TOOLS : applyOverlay(RAW_TOOLS, loadCatalog(LANG, "tools"));
 export const handlers = Object.assign({}, ...MODULES.map((m) => m.handlers));
+export { RAW_TOOLS };

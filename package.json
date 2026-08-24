@@ -20,7 +20,8 @@
   "author": "MDP Group",
   "license": "MIT",
   "files": [
-    "index.js"
+    "index.js",
+    "src/"
   ],
   "engines": {
     "node": ">=18.0.0"
