@@ -34,6 +34,7 @@ The server is configured via environment variables:
 | `MIP_USERNAME` | Yes | MIP username |
 | `MIP_PASSWORD` | Yes | MIP password |
 | `MIP_DOWNLOAD_DIR` | No | Local path for downloaded files (default: `~/mip-downloads`) |
+| `MIP_LANG` | No | Interface language: `tr` (default) or `en`. Sets tool/parameter descriptions, result messages and report labels. |
 
 ## Usage with Claude Code
 
@@ -49,7 +50,8 @@ Add to your `.mcp.json` or Claude Code settings:
         "MIP_BASE_URL": "http://<your-mip-host>",
         "MIP_USERNAME": "<username>",
         "MIP_PASSWORD": "<password>",
-        "MIP_DOWNLOAD_DIR": "C:/mip-downloads"
+        "MIP_DOWNLOAD_DIR": "C:/mip-downloads",
+        "MIP_LANG": "en"
       }
     }
   }
@@ -390,6 +392,26 @@ Test connectivity from MIP to 10.0.0.5:1433.
 ```
 Show the license detail and whether it's still valid.
 ```
+
+## What's new in 1.3.0 — English language support (i18n)
+
+The server is now bilingual. `MIP_LANG` selects the language and **defaults to `tr`**, so existing
+installations behave exactly as before; set `MIP_LANG=en` for English.
+
+- **All 150 tool descriptions and 523 parameter descriptions** are now English in the source, with
+  Turkish served from a translation catalog (`src/i18n/tr/tools.json`). Since these descriptions are
+  what the calling AI reads when choosing among 150 tools, English improves tool-selection accuracy
+  for non-Turkish assistants.
+- **Result messages, errors, and Excel/Markdown report labels** are localized too, including the
+  number format (`1.234.567` vs `1,234,567`) and Excel sheet names.
+- A missing translation falls back to English rather than rendering blank.
+- Adding another language means adding one JSON file — no code changes.
+
+**Fixed:** `package.json` listed only `index.js` under `files`, so the published tarball shipped
+without `src/` and `npx @burakgoksu1/mip-mcp-server` was broken from 1.1.0 onward. Now fixed.
+
+*Still Turkish (planned for the next release):* the flow knowledge base returned by
+`mip_get_flow_schema` and the `validateFlow` messages.
 
 ## What's new in 1.2.3 — node names are canonical (stop breaking the flow object)
 
