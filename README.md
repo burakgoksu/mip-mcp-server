@@ -2,6 +2,10 @@
 
 MCP (Model Context Protocol) server for **MIP** — MDP Group's Integration Platform. Enables AI assistants (Claude, etc.) to drive almost the entire MIP UI through natural language: flows & packages (incl. **graphical mapping** generation), deploy/monitoring, mappings, resources & WSDL, credentials, service users, certificates & keystores, **Integrations** (counters, alerts + SMTP, message search rules, global flow configs), **Destinations** (JDBC, RFC/SAP, MCP servers, OFTP2), **Operations** (Kafka queues, EDI schemas, SAP connections, XI queues, RFC explorer, SOA services), **Editors** (run Groovy / XSLT), **Management** (system health + reports, test connectivity, alert configurations, license — read-only), and **API Management** (APISIX gateway — routes, consumers, rejected requests, service-user sync). **150 tools** in total.
 
+> 🌍 **Bilingual — English / Turkish.** Every tool description, parameter description, result
+> message, error, report label and the embedded flow knowledge base is available in both languages.
+> Set `MIP_LANG=en` for English; the default is `tr`. See [Language](#language).
+
 > ⚠️ **Danger zones:** this server deliberately exposes **no** tools for MIP's *Database Management*, *DB Analysis & Backup* (backup/restore), or *license write* — these can cause irreversible damage on a live server. License is read-only.
 
 ## Requirements
@@ -35,6 +39,34 @@ The server is configured via environment variables:
 | `MIP_PASSWORD` | Yes | MIP password |
 | `MIP_DOWNLOAD_DIR` | No | Local path for downloaded files (default: `~/mip-downloads`) |
 | `MIP_LANG` | No | Interface language: `tr` (default) or `en`. Sets tool/parameter descriptions, result messages and report labels. |
+
+## Language
+
+The server is fully bilingual: **English (`en`) and Turkish (`tr`)**.
+
+```json
+"env": { "MIP_LANG": "en" }
+```
+
+| | |
+|---|---|
+| **Default** | `tr` — existing installations are unaffected; Turkish output is byte-for-byte what it always was. |
+| **What it covers** | All 150 tool descriptions and 523 parameter descriptions, result and error messages, Excel/Markdown report labels and sheet names, the number format (`1.234.567` vs `1,234,567`), and the flow knowledge base returned by `mip_get_flow_schema`. |
+| **Accepted values** | `en`, `tr`. Locale forms like `en_US` / `tr-TR` are accepted and reduced to the base language. Anything else warns on stderr and falls back to `tr`. |
+| **Fallback** | A missing translation renders the English source string, never a blank. |
+
+English is the canonical source language in the code; Turkish is served from catalogs under
+`src/i18n/tr/`. Two consequences worth knowing:
+
+- **Tool descriptions are what the calling AI reads** when choosing among 150 tools and filling
+  their arguments, so `MIP_LANG=en` tends to improve tool-selection accuracy for a non-Turkish
+  assistant.
+- **Adding another language is one directory** — `src/i18n/<lang>/` with `tools.json`,
+  `messages.json` and `kb.json`. No code changes.
+
+Literal integration data is never translated in either direction: `buttonedge`, `normal-source`,
+`objectType` names, canonical node labels and the worked flow templates' node/edge JSON are
+identical in every locale, because the model copies them verbatim into generated flows.
 
 ## Usage with Claude Code
 
