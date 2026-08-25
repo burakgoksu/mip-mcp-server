@@ -11,10 +11,9 @@ Thumbs.db
 .mcp.json
 
 # Refactor/debug temp files
-_verify.mjs
-_baseline.json
 _*.mjs
 _*.py
+_*.json
 
 # Local flow export samples (analysis input, large binaries)
 new-sample-flow/

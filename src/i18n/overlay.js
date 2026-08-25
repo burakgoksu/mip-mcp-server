@@ -62,3 +62,51 @@ export function applyOverlay(tools, catalog, stats = newStats()) {
   }
   return out;
 }
+
+// ─── Knowledge-base overlay ───────────────────────────────────────────────────
+// A DIFFERENT walker from applyOverlay above, and the two must not be swapped.
+// applyOverlay understands JSON Schema (properties/items/description); the KB is
+// free-form nested data, so this one walks every string leaf and keys it by a
+// plain dotted path with [i] for array indices:
+//   description                                    top-level prose
+//   nodeTypes.processStart.description             nested object
+//   importantNotes[3]                              array item
+//   flowTemplates.conditionFlow.flowData[2].data.label
+//
+// Deliberately catalog-driven rather than translate-everything: most KB leaves
+// are literal flow data the model copies verbatim ('buttonedge', 'normal-source',
+// objectType names, canonical node labels). Only paths present in the catalog are
+// replaced, so a leaf with no entry can never be corrupted by a translation pass.
+export function applyKbOverlay(kb, catalog, stats = newStats()) {
+  if (!catalog || !Object.keys(catalog).length) return kb;
+  const out = structuredClone(kb);
+  const walk = (node, path) => {
+    if (Array.isArray(node)) {
+      node.forEach((v, i) => {
+        const key = `${path}[${i}]`;
+        if (typeof v === "string") {
+          const hit = catalog[key];
+          if (typeof hit === "string" && hit.length) { node[i] = hit; stats.hit.push(key); }
+        } else walk(v, key);
+      });
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    for (const [k, v] of Object.entries(node)) {
+      const key = path ? `${path}.${k}` : k;
+      if (typeof v === "string") {
+        const hit = catalog[key];
+        if (typeof hit === "string" && hit.length) { node[k] = hit; stats.hit.push(key); }
+      } else walk(v, key);
+    }
+  };
+  walk(out, "");
+  if (process.env.MIP_I18N_DEBUG) {
+    const dead = Object.keys(catalog).filter((k) => !stats.hit.includes(k));
+    process.stderr.write(
+      `i18n: kb ${stats.hit.length}/${Object.keys(catalog).length} leaves translated.\n` +
+        (dead.length ? `i18n: kb dead keys: ${dead.slice(0, 10).join(", ")}\n` : "")
+    );
+  }
+  return out;
+}

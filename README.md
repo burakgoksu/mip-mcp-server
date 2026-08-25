@@ -393,6 +393,25 @@ Test connectivity from MIP to 10.0.0.5:1433.
 Show the license detail and whether it's still valid.
 ```
 
+## What's new in 1.4.0 — the flow knowledge base speaks English too
+
+Phase 2 of the i18n work, completing what 1.3.0 started. `MIP_LANG` still defaults to `tr`, and
+Turkish output is unchanged down to the byte.
+
+- **The embedded flow knowledge base** served by `mip_get_flow_schema` (`src/kb/flowSchema.js` —
+  1021 strings) is now English in the source, with Turkish served from `src/i18n/tr/kb.json`. This
+  is the material the AI reads before generating a flow, so it matters most for non-Turkish
+  assistants.
+- **The 22 `validateFlow` messages** (E1-E8 / W1-W7) are localized. The error codes themselves stay
+  locale-invariant, so tooling can still match on them.
+- Only prose is translated. Literal flow data the model copies verbatim — `buttonedge`,
+  `normal-source`, `objectType` names, canonical node labels, the worked templates' node/edge JSON —
+  carries no catalog entry and is untouched by any translation pass.
+- Placeholder sample values are now English as well (`/example`, `mip@example.com`,
+  `direct-endpoint-name`).
+
+Adding a third language remains one JSON file per catalog, no code changes.
+
 ## What's new in 1.3.0 — English language support (i18n)
 
 The server is now bilingual. `MIP_LANG` selects the language and **defaults to `tr`**, so existing
@@ -410,8 +429,6 @@ installations behave exactly as before; set `MIP_LANG=en` for English.
 **Fixed:** `package.json` listed only `index.js` under `files`, so the published tarball shipped
 without `src/` and `npx @burakgoksu1/mip-mcp-server` was broken from 1.1.0 onward. Now fixed.
 
-*Still Turkish (planned for the next release):* the flow knowledge base returned by
-`mip_get_flow_schema` and the `validateFlow` messages.
 
 ## What's new in 1.2.3 — node names are canonical (stop breaking the flow object)
 
