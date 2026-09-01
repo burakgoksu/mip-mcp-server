@@ -29,7 +29,7 @@ async function handleTool(name, args) {
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
 const server = new Server(
-  { name: "mip-mcp-server", version: "1.4.0" },
+  { name: "mip-mcp-server", version: "1.5.0" },
   { capabilities: { tools: {} } }
 );
 

@@ -1,6 +1,6 @@
 {
   "name": "@burakgoksu1/mip-mcp-server",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "MCP Server for MIP (MDP Integration Process) - MDP Group Integration Platform",
   "type": "module",
   "main": "index.js",

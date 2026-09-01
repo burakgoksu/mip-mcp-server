@@ -99,9 +99,9 @@ Add to your `.mcp.json` or Claude Code settings:
 | Tool | Description |
 |---|---|
 | `mip_get_flow_schema` | Returns the embedded MIP flow KB (node types, edge/condition wiring, templates, expression language, validation, safety notes). **Call this before building any flow.** |
-| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers. **Auto-normalizes node ids to `dndnode_*`** (v1.16 deploy requirement). Optional `resources` (schema/xslt/…) + `flowMappings` for graphical-mapping flows: `links` (1:1 field maps) and `functions` (CONSTANT / MULTIPLY / ADD / CONCAT / UPPER_CASE / … — e.g. set a field to a constant or multiply a field by N) |
-| `mip_export_packages_and_flows` | Exports packages and flows as a zip |
-| `mip_import_packages_and_flows` | Imports packages and flows from a zip |
+| `mip_create_and_import_flow` | Builds a flow zip and imports it; runs pre-import validation to block deploy-breakers. **Auto-normalizes node ids to `dndnode_*`** (v1.16 deploy requirement). Optional `resources` (schema/xslt/…) + `flowMappings` for graphical-mapping flows: `links` (1:1 field maps) and `functions` (CONSTANT / MULTIPLY / ADD / CONCAT / UPPER_CASE / … — e.g. set a field to a constant or multiply a field by N). **Preserves the target package's real record** (name/description/parent) instead of overwriting it; optional `package` overrides individual fields |
+| `mip_export_packages_and_flows` | Exports packages and flows as a zip. Passing `flowIds` alone now exports **only** those flows (`packageIds` is sent as `[]` automatically); with no arguments at all you still get the whole system. The reply reports how many flows the zip actually holds |
+| `mip_import_packages_and_flows` | Imports packages and flows from a zip. **Writes every flow and package in the zip** — to update one flow, make sure the zip holds only that flow |
 
 ### Deploy & Endpoints
 
@@ -424,6 +424,71 @@ Test connectivity from MIP to 10.0.0.5:1433.
 ```
 Show the license detail and whether it's still valid.
 ```
+
+## Fixed in 1.5.0 — importing a flow no longer flattens its package
+
+`mip_create_and_import_flow` **invented** the package record it put in the import zip:
+`{packageId: id, packageName: id, packageDescription: `${id} paketi`}`. MIP's import applies that
+record, so importing a flow into an **existing** package overwrote the real one:
+
+- **`packageRootId` was never sent**, so a nested package was orphaned out of its tree. Real
+  example: `P_LIMIT` lives under `P_DBS`; one import moved it to the root.
+- **`packageName` was replaced by the id** — and a package's name genuinely differs from its id in
+  production data (a real export carries `{packageId: "…_TESTS_PACKAGE", packageName: "…_PACKAGE"}`).
+- **`packageDescription` was replaced by `"<id> paketi"`**, destroying human-written text such as
+  `"E-Ticaret Sipariş İşleme"` or `"MCP test suite root - groups all MCP coverage packages"`. That
+  literal was also the one string in the handler that bypassed `t()`, so it stayed Turkish under
+  `MIP_LANG=en`.
+
+What it does now, before building the zip:
+
+- **Reads the package's real record** from MIP's package tree (`GET /api/packages`, descending via
+  `GET /api/packages/{id}`) and **re-sends it unchanged**. The walk stops the moment the id matches
+  and scans each page as it arrives, so a root-level package costs 1 call and a nested one ~2 —
+  not the whole tree. It carries a `seen` set (the same package can be reached from several
+  parents), treats `204` as "empty package, not an error", and derives the parent from the walk
+  path, so it is correct whether or not the API echoes `rootId`.
+- **When the record cannot be read** — an HTTP error, or a 1000-call / 20-second budget hit — it
+  writes **no `packages/` entry at all**, leaving any existing record untouched. Overwriting
+  becomes structurally impossible rather than merely unlikely. This mirrors MIP's own filtered
+  exports, which ship without a `packages/` folder and import fine. The reply says so explicitly,
+  including that a genuinely new package was **not** created and the call should be retried.
+- **Only a package proven absent** (a walk that completed and found nothing) gets a generated
+  record, and it now follows MIP's own convention: `packageName = packageDescription = packageId`,
+  with `packageRootId` **omitted** rather than sent as `null` — matching exactly what real exports
+  of a root-level package contain.
+- **New optional `package` argument** — `{packageId?, packageName?, packageDescription?,
+  packageRootId?}` — merged **field by field on top of** the real record, never replacing it. Pass
+  only `packageDescription` and the real `packageName` and `packageRootId` survive. On a new
+  package, `packageRootId` is how you nest it under an existing one. A `packageId` that disagrees
+  with `flow.flowPackageId` is refused rather than silently resolved.
+- **The result message reports which of the three happened** (record reused / created / left
+  untouched), naming the parent package — that line is the signal that the overwrite did not occur.
+
+Covered by `_pkg-test.mjs`, an offline harness that stubs axios, runs the real handler and reads
+back the zip it wrote: nested lookup, partial-override merge, `rootId` vs walked parent, absent,
+absent-plus-explicit-parent, both budget trips, a duplicate-reference cycle, the id-mismatch
+refusal, and — the load-bearing one — that the fallback zip contains no `packages/` key at all.
+
+## Fixed in 1.4.1 — export no longer ships the whole system when you ask for one flow
+
+`mip_export_packages_and_flows` sent `packageIds:[null]` whenever the caller omitted `packageIds`.
+In MIP that value means **all packages**, and it overrides the `flowIds` filter — so asking for a
+single flow exported every flow in the system (65 here, verified live). The tool returned only the
+zip path, so nothing said otherwise. Editing that zip and feeding it back to
+`mip_import_packages_and_flows` would rewrite all 65 flows instead of the one you meant.
+
+- **The `[null]` fallback now fires only when nothing was asked for.** A `flowIds`-only call sends
+  `packageIds:[]`, which is what MIP needs to honour the flow filter. Calling the tool with no
+  arguments still exports the whole system, unchanged.
+- **The reply says what actually landed in the zip** — `N flow export edildi: <ids>` (first 10, then
+  `… (+N)`) next to the path, read back out of the zip's `flows/*.json`. A filtered export contains
+  no `packages/` folder at all, so the reader never assumes one, and a zip it cannot parse costs you
+  the summary, never the export.
+- **An explicit ⚠ warning** when the zip holds more flows than `flowIds` requested, naming the import
+  risk. The old failure was silent; this one is loud.
+- `mip_import_packages_and_flows` now states in its description that it writes **every** flow and
+  package in the zip.
 
 ## What's new in 1.4.0 — the flow knowledge base speaks English too
 
